@@ -1,13 +1,22 @@
 services:
-  oshb_database:
-    container_name: oshb_database
+  hero_search_bot_database:
+    container_name: hero_search_bot_database
     image: postgres:16.2-alpine
     env_file:
       - ../.env
     ports:
       - 5431:5432
     volumes:
-      - oshb_dbdata:/var/lib/postgresql/data/
+      - hero_search_bot_dbdata:/var/lib/postgresql/data/
+
+  hero_search_bot_redis:
+    container_name: hero_search_bot_redis
+    image: redis:7.2.4-alpine
+    ports:
+      - 6378:6379
+    volumes:
+      - hero_search_bot_redisdata:/data/
 
 volumes:
-  oshb_dbdata:
+  hero_search_bot_dbdata:
+  hero_search_bot_redisdata:

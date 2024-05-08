@@ -1,1 +1,3 @@
-# 5-oshb-data-collection
+# hero-search-bot
+
+Bot requests data in a sequence of emails:
