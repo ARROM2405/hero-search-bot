@@ -3,7 +3,7 @@ from django.db import models
 
 class DataEntryAuthor(models.Model):
     telegram_id = models.BigIntegerField(unique=True)
-    first_name = models.CharField(max_length=100, blank=True, null=True)
+    first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100, blank=True, null=True)
     username = models.CharField(max_length=100, blank=True, null=True, unique=True)
 

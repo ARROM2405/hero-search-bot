@@ -19,19 +19,20 @@ def create_base_serializer_with_field(
     return BaseSerializer
 
 
-class MessageAuthorSerializer(serializers.Serializer):
+class TelegramUserSerializer(serializers.Serializer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["id"] = serializers.IntegerField()
 
-    first_name = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    is_bot = serializers.BooleanField()
+    first_name = serializers.CharField(max_length=100)
     last_name = serializers.CharField(max_length=100, required=False, allow_blank=True)
     username = serializers.CharField(max_length=100, required=False, allow_blank=True)
 
 
 WithFromFieldSerializerBase = create_base_serializer_with_field(
     "from",
-    MessageAuthorSerializer,
+    TelegramUserSerializer,
 )
 
 WithIdFieldSerializerBase = create_base_serializer_with_field(
@@ -62,7 +63,7 @@ class EntitiesSerializer(serializers.Serializer):
 
 
 class MessageSerializer(WithFromFieldSerializerBase):
-    text = serializers.CharField()
+    text = serializers.CharField(required=False)
     entities = EntitiesSerializer(
         many=True,
         required=False,
