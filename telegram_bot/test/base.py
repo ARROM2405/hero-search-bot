@@ -1,4 +1,7 @@
+import json
+
 from django.test import TestCase
+from rest_framework.test import APITestCase
 
 from telegram_bot.test.requests_examples import (
     BOT_KICKED_FROM_THE_PRIVATE_CHAT,
@@ -12,10 +15,10 @@ from telegram_bot.test.requests_examples import (
 )
 
 
-class TelegramBotRequestsTestBase(TestCase):
+class TelegramBotRequestsTestBase(APITestCase):
     def setUp(self):
         # Private chat
-        self.bot_kicked_from_private_chat_request_payload = (
+        self.bot_kicked_from_private_chat_request_payload = json.dumps(
             BOT_KICKED_FROM_THE_PRIVATE_CHAT
         )
         self.bot_added_to_the_private_chat_request_payload = (
