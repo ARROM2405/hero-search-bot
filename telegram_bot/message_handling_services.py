@@ -154,10 +154,11 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
     def process(self):
         self.parsed_telegram_message = self.PARSER.parse(self.telegram_message)
         print("parsed_message", self.parsed_telegram_message)
-        self._remove_inline_keyboard_from_replied_message(
-            chat_id=self.parsed_telegram_message.chat_id,
-            message_id=self.parsed_telegram_message.replied_message_id,
-        )
+        if self.parsed_telegram_message.sent_by_inline_keyboard:
+            self._remove_inline_keyboard_from_replied_message(
+                chat_id=self.parsed_telegram_message.chat_id,
+                message_id=self.parsed_telegram_message.replied_message_id,
+            )
         match self.parsed_telegram_message.data:
             case "/start":
                 self._process_start_command()
@@ -257,19 +258,17 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
         payload = response_object.to_payload()
         return payload
 
-    def prepare_response(self) -> dict:
-        payload = None
+    def prepare_response(self) -> dict | None:
         if self.parsed_telegram_message.chat_type is not ChatType.GROUP:
             match self.parsed_telegram_message.data:
                 case "/start":
-                    payload = self._get_start_command_response()
+                    return self._get_start_command_response()
                 case "/instructions_confirmed":
-                    payload = self._get_instructions_confirmed_command_response()
+                    return self._get_instructions_confirmed_command_response()
                 case "/input_confirmed":
-                    payload = self._get_input_confirmed_command_response()
+                    return self._get_input_confirmed_command_response()
                 case "/input_not_confirmed":
-                    payload = self._get_input_not_confirmed_command_response()
-        return payload
+                    return self._get_input_not_confirmed_command_response()
 
 
 class MessageHandler:
@@ -280,13 +279,12 @@ class MessageHandler:
         if "callback_query" in self.telegram_message:
             return BotCommandProcessor(self.telegram_message)
         elif "message" in self.telegram_message:
-            try:
-                entities = self.telegram_message["message"]["entities"]
+            if entities := self.telegram_message["message"].get("entities"):
                 if entities[0]["type"] == "bot_command":
                     return BotCommandProcessor(self.telegram_message)
-                return UserMessageProcessor(self.telegram_message)
-            except (KeyError, IndexError) as e:
-                return UserMessageProcessor(self.telegram_message)
+            elif "left_chat_member" in self.telegram_message["message"]:
+                return MemberStatusChangeProcessor(self.telegram_message)
+            return UserMessageProcessor(self.telegram_message)
         elif "my_chat_member" in self.telegram_message:
             return MemberStatusChangeProcessor(self.telegram_message)
         raise NotImplementedError

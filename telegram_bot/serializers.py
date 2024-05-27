@@ -69,6 +69,8 @@ class MessageSerializer(WithFromFieldSerializerBase):
         required=False,
         allow_null=True,
     )
+    left_chat_member = TelegramUserSerializer(required=False)
+    chat = ChatSerializer()
 
 
 class RepliedMessageSerializer(serializers.Serializer):

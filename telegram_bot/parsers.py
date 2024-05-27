@@ -76,14 +76,12 @@ class TelegramCommandParser(BaseParser):
         data = message["text"]
         author_data = message["from"]
         chat_data = message["chat"]
-        replied_message_id = None
 
         return BotCommand(
             chat_id=chat_data["id"],
             chat_type=ChatType.from_payload_value(chat_data["type"]),
             username=author_data.get("username"),
             data=data,
-            replied_message_id=replied_message_id,
             first_name=author_data.get("first_name"),
             last_name=author_data.get("last_name"),
         )
