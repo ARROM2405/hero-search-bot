@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 from telegram_bot.constants import ORDER_OF_MESSAGES, MESSAGES_MAPPING
 from telegram_bot.exceptions import AllDataReceivedException
-from telegram_bot.models import HeroData, DataEntryAuthor
+from telegram_bot.models import HeroData, TelegramUser
 
 load_dotenv(os.path.join(settings.BASE_DIR, ".env"))
 client = redis.Redis(host=os.getenv("REDIS_HOST"), port=os.getenv("REDIS_PORT"), db=0)
@@ -50,7 +50,10 @@ class SequentialMessagesProcessor:
             self._create_new_redis_saved_data_set(
                 {self.current_message_key: self.message_data}
             )
-        client.hset(self.chat_id, mapping={self.current_message_key: self.message_data})
+        else:
+            client.hset(
+                self.chat_id, mapping={self.current_message_key: self.message_data}
+            )
 
     def get_response_text(self) -> str:
         if self.next_message_key:
@@ -78,7 +81,7 @@ class SequentialMessagesProcessor:
         client.delete(chat_id)
 
     @staticmethod
-    def save_confirmed_data(chat_id: int, entry_author: DataEntryAuthor) -> HeroData:
+    def save_confirmed_data(chat_id: int, entry_author: TelegramUser) -> HeroData:
         data = client.hgetall(chat_id)
         print("saved_input:", end=" ")
         print(data)

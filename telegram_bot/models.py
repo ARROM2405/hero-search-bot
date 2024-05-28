@@ -1,7 +1,10 @@
 from django.db import models
+from enumfields.fields import EnumIntegerField
+
+from telegram_bot.enums import UserActionType, ChatType
 
 
-class DataEntryAuthor(models.Model):
+class TelegramUser(models.Model):
     telegram_id = models.BigIntegerField(unique=True)
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100, blank=True, null=True)
@@ -23,4 +26,12 @@ class HeroData(models.Model):
     is_added_to_dna_db = models.BooleanField(default=False)
     comment = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    author = models.ForeignKey(to=DataEntryAuthor, on_delete=models.PROTECT)
+    author = models.ForeignKey(to=TelegramUser, on_delete=models.PROTECT)
+
+
+class BotStatusChange(models.Model):
+    initiator = models.ForeignKey(to=TelegramUser, on_delete=models.PROTECT)
+    action_type = EnumIntegerField(UserActionType)
+    chat_type = EnumIntegerField(ChatType)
+    date_time = models.DateTimeField(auto_now_add=True)
+    chat_id = models.BigIntegerField()

@@ -7,6 +7,7 @@ from rest_framework.fields import Field
 field_type = TypeVar("field_type", bound=Field)
 
 
+# TODO: make as class decorator
 def create_base_serializer_with_field(
     field_name: str,
     field: type(field_type),
@@ -25,9 +26,15 @@ class TelegramUserSerializer(serializers.Serializer):
         self.fields["id"] = serializers.IntegerField()
 
     is_bot = serializers.BooleanField()
-    first_name = serializers.CharField(max_length=100)
-    last_name = serializers.CharField(max_length=100, required=False, allow_blank=True)
-    username = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    first_name = serializers.CharField(
+        max_length=100, required=False, allow_blank=True, allow_null=True
+    )
+    last_name = serializers.CharField(
+        max_length=100, required=False, allow_blank=True, allow_null=True
+    )
+    username = serializers.CharField(
+        max_length=100, required=False, allow_blank=True, allow_null=True
+    )
 
 
 WithFromFieldSerializerBase = create_base_serializer_with_field(

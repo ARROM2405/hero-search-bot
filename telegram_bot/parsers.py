@@ -1,6 +1,10 @@
 from abc import abstractmethod, ABC
 
-from telegram_bot.dataclasses import StatusChangeWithinChat, UserMessage, BotCommand
+from telegram_bot.dataclasses import (
+    StatusChangeWithinChat,
+    UserMessage,
+    BotCommand,
+)
 from telegram_bot.enums import ChatType
 
 
@@ -35,17 +39,26 @@ class UserMessageParser(BaseParser):
 class ChatStatusChangeMessageParser(BaseParser):
 
     @staticmethod
+    def _parse_status_change(telegram_message: dict) -> str:
+        if "left_chat_member" in telegram_message:
+            return "left"
+        return telegram_message["new_chat_member"]["status"]
+
+    @staticmethod
     def parse(telegram_message: dict) -> StatusChangeWithinChat:
-        telegram_message = telegram_message["my_chat_member"]
+        telegram_message = telegram_message.get(
+            "my_chat_member"
+        ) or telegram_message.get("message")
         chat_data = telegram_message["chat"]
-        chat_member_data = telegram_message["new_chat_member"]
+        status = ChatStatusChangeMessageParser._parse_status_change(telegram_message)
         author_data = telegram_message["from"]
 
         return StatusChangeWithinChat(
             chat_id=chat_data["id"],
             chat_type=ChatType.from_payload_value(chat_data["type"]),
-            status=chat_member_data["status"],
+            status=status,
             username=author_data.get("username"),
+            user_id=author_data["id"],
             first_name=author_data.get("first_name"),
             last_name=author_data.get("last_name"),
         )

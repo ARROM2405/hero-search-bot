@@ -1,8 +1,6 @@
-import json
-
-from django.test import TestCase
 from rest_framework.test import APITestCase
 
+from telegram_bot.serializers import TelegramBotSerializer
 from telegram_bot.test.requests_examples import (
     BOT_KICKED_FROM_THE_PRIVATE_CHAT,
     BOT_ADDED_TO_THE_PRIVATE_CHAT,
@@ -42,3 +40,8 @@ class TelegramBotRequestsTestBase(APITestCase):
         )
 
         # TODO: add command as callback, message, bot set as admin, all for groups.
+
+    def _get_serialized_request_data(self, request_payload: dict) -> dict:
+        serializer = TelegramBotSerializer(data=request_payload)
+        serializer.is_valid(raise_exception=True)
+        return serializer.validated_data

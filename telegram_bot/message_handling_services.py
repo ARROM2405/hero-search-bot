@@ -15,7 +15,7 @@ from telegram_bot.messages_texts import (
     INPUT_CONFIRMED_RESPONSE,
     ALL_DATA_RECEIVED_RESPONSE,
 )
-from telegram_bot.models import DataEntryAuthor
+from telegram_bot.models import TelegramUser, BotStatusChange
 from telegram_bot.parsers import (
     ChatStatusChangeMessageParser,
     UserMessageParser,
@@ -38,40 +38,32 @@ class TelegramMessageProcessorBase(ABC):
     def prepare_response(self) -> ResponseMessage: ...
 
 
-# TODO: check if needed?
 class MemberStatusChangeProcessor(TelegramMessageProcessorBase):
     PARSER = ChatStatusChangeMessageParser
 
+    def _save_bot_status_change(self) -> BotStatusChange:
+        telegram_user, _ = TelegramUser.objects.get_or_create(
+            telegram_id=self.parsed_telegram_message.user_id,
+            first_name=self.parsed_telegram_message.first_name,
+            last_name=self.parsed_telegram_message.last_name,
+            username=self.parsed_telegram_message.username,
+        )
+
+        return BotStatusChange.objects.create(
+            initiator=telegram_user,
+            chat_id=self.parsed_telegram_message.chat_id,
+            action_type=UserActionType.from_payload_value(
+                self.parsed_telegram_message.status
+            ),
+            chat_type=self.parsed_telegram_message.chat_type,
+        )
+
     def process(self):
         self.parsed_telegram_message = self.PARSER.parse(self.telegram_message)
+        self._save_bot_status_change()
 
     def prepare_response(self) -> dict:
-        action_type = UserActionType.from_payload_value(
-            self.parsed_telegram_message.status
-        )
-        if (
-            self.parsed_telegram_message.chat_type is ChatType.PRIVATE
-            and action_type is UserActionType.ADD_BOT_TO_CHAT
-        ):
-            response_text = FIRST_INSTRUCTIONS
-            response_reply_markup = {
-                "remove_keyboard": True,
-                "inline_keyboard": [
-                    [
-                        {
-                            "text": "Зрозуміло, починаємо",
-                            "callback_data": "/instructions_confirmed",
-                        }
-                    ]
-                ],
-            }
-            response_object = ResponseMessage(
-                text=response_text,
-                reply_markup=response_reply_markup,
-                chat_id=self.parsed_telegram_message.chat_id,
-            )
-            payload = response_object.to_payload()
-            return payload
+        pass
 
 
 class UserMessageProcessor(TelegramMessageProcessorBase):
@@ -176,7 +168,7 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
         pass
 
     def _process_input_confirmed_command(self):
-        data_entry_author, _ = DataEntryAuthor.objects.get_or_create(
+        data_entry_author, _ = TelegramUser.objects.get_or_create(
             telegram_id=self.parsed_telegram_message.chat_id,
             defaults={
                 "telegram_id": self.parsed_telegram_message.chat_id,

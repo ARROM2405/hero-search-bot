@@ -21,6 +21,7 @@ class StatusChangeWithinChat:
     chat_type: ChatType
     status: str
     username: str
+    user_id: int
     first_name: str = None
     last_name: str = None
 
@@ -48,3 +49,9 @@ class ResponseMessage:
         if self.reply_markup:
             payload["reply_markup"] = json.dumps(self.reply_markup)
         return payload
+
+
+@dataclass
+class ChatData:
+    id: int
+    type: ChatType
