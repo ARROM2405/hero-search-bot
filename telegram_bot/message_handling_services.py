@@ -52,9 +52,7 @@ class MemberStatusChangeProcessor(TelegramMessageProcessorBase):
         return BotStatusChange.objects.create(
             initiator=telegram_user,
             chat_id=self.parsed_telegram_message.chat_id,
-            action_type=UserActionType.from_payload_value(
-                self.parsed_telegram_message.status
-            ),
+            action_type=self.parsed_telegram_message.user_action_type,
             chat_type=self.parsed_telegram_message.chat_type,
         )
 

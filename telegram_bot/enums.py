@@ -30,10 +30,14 @@ class ChatType(IntEnum):
 
 class MessageType(IntEnum):
     COMMAND = 1
+    MESSAGE = 2
     OTHER = 99
 
     @classmethod
-    def from_payload_value(cls, payload_value: str):
-        if payload_value.lower() == "bot_command":
-            return cls.COMMAND
+    def from_message_object_in_payload(cls, message: dict):
+        if entities := message.get("entities"):
+            if entities[0].get("type", "").lower == "bot_command":
+                return cls.COMMAND
+        elif message.get("text"):
+            return cls.MESSAGE
         raise NotImplementedError

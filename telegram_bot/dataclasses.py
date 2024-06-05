@@ -1,13 +1,14 @@
 import json
 from dataclasses import dataclass, asdict
 
-from telegram_bot.enums import ChatType, MessageType
+from telegram_bot.enums import ChatType, MessageType, UserActionType
 
 
 @dataclass
 class UserMessage:
-    chat_id: int
+    chat_id: int | None
     username: str
+    user_id: int
     text: str
     chat_type: ChatType = None
     message_type: MessageType = None
@@ -19,7 +20,7 @@ class UserMessage:
 class StatusChangeWithinChat:
     chat_id: int
     chat_type: ChatType
-    status: str
+    user_action_type: UserActionType
     username: str
     user_id: int
     first_name: str = None

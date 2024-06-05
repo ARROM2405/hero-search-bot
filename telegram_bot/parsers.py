@@ -5,7 +5,7 @@ from telegram_bot.dataclasses import (
     UserMessage,
     BotCommand,
 )
-from telegram_bot.enums import ChatType
+from telegram_bot.enums import ChatType, MessageType, UserActionType
 
 
 class BaseParser(ABC):
@@ -19,19 +19,18 @@ class UserMessageParser(BaseParser):
 
     @staticmethod
     def parse(telegram_message: dict) -> UserMessage:
-        entities = telegram_message["message"].get("entities")
-        chat = telegram_message["message"].get("chat")
+        message = telegram_message["message"]
+        chat = message.get("chat")
         return UserMessage(
-            chat_id=telegram_message["message"]["from"]["id"],
-            username=telegram_message["message"]["from"].get("username"),
-            text=telegram_message["message"]["text"],
-            first_name=telegram_message["message"]["from"].get("first_name"),
-            last_name=telegram_message["message"]["from"].get("last_name"),
-            message_type=entities[0]["type"] if entities else None,
+            chat_id=chat.get("id") if chat else None,
+            user_id=message["from"]["id"],
+            username=message["from"].get("username"),
+            text=message["text"],
+            first_name=message["from"].get("first_name"),
+            last_name=message["from"].get("last_name"),
+            message_type=MessageType.from_message_object_in_payload(message),
             chat_type=(
-                ChatType.from_payload_value(telegram_message["message"]["chat"]["type"])
-                if chat and entities
-                else None
+                ChatType.from_payload_value(message["chat"]["type"]) if chat else None
             ),
         )
 
@@ -39,10 +38,13 @@ class UserMessageParser(BaseParser):
 class ChatStatusChangeMessageParser(BaseParser):
 
     @staticmethod
-    def _parse_status_change(telegram_message: dict) -> str:
-        if "left_chat_member" in telegram_message:
-            return "left"
-        return telegram_message["new_chat_member"]["status"]
+    def _parse_user_action_type(telegram_message: dict) -> UserActionType:
+        payload_value = (
+            "left"
+            if "left_chat_member" in telegram_message
+            else telegram_message["new_chat_member"]["status"]
+        )
+        return UserActionType.from_payload_value(payload_value)
 
     @staticmethod
     def parse(telegram_message: dict) -> StatusChangeWithinChat:
@@ -50,13 +52,15 @@ class ChatStatusChangeMessageParser(BaseParser):
             "my_chat_member"
         ) or telegram_message.get("message")
         chat_data = telegram_message["chat"]
-        status = ChatStatusChangeMessageParser._parse_status_change(telegram_message)
+        user_action_type = ChatStatusChangeMessageParser._parse_user_action_type(
+            telegram_message
+        )
         author_data = telegram_message["from"]
 
         return StatusChangeWithinChat(
             chat_id=chat_data["id"],
             chat_type=ChatType.from_payload_value(chat_data["type"]),
-            status=status,
+            user_action_type=user_action_type,
             username=author_data.get("username"),
             user_id=author_data["id"],
             first_name=author_data.get("first_name"),
