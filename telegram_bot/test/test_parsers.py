@@ -219,6 +219,64 @@ class TestTelegramCommandParser(TelegramBotRequestsTestBase):
             ),
         )
 
+    def test_parse_command_as_message_in_private_chat(self):
+        payload = deepcopy(self.command_as_message_in_private_chat_request_payload)
+        del payload["message"]["from"]["username"]
+        serialized_data = self._get_serialized_request_data(payload)
+        parsed_data = TelegramCommandParser.parse(serialized_data)
+        assert_that(
+            parsed_data,
+            has_attrs(
+                chat_id=payload["message"]["chat"]["id"],
+                chat_type=ChatType.PRIVATE,
+                username=None,
+                user_id=payload["message"]["from"]["id"],
+                data="/start",
+                replied_message_id=None,
+                sent_by_inline_keyboard=False,
+                first_name=payload["message"]["from"]["first_name"],
+                last_name=payload["message"]["from"]["last_name"],
+            ),
+        )
+
+    def test_parse_command_as_callback_query_in_private_chat(self):
+        payload = deepcopy(self.command_as_callback_in_private_chat_request_payload)
+        del payload["callback_query"]["from"]["username"]
+        serialized_data = self._get_serialized_request_data(payload)
+        parsed_data = TelegramCommandParser.parse(serialized_data)
+        assert_that(
+            parsed_data,
+            has_attrs(
+                chat_id=payload["callback_query"]["message"]["chat"]["id"],
+                chat_type=ChatType.PRIVATE,
+                username=None,
+                data="/some_command",
+                replied_message_id=payload["callback_query"]["message"]["message_id"],
+                sent_by_inline_keyboard=True,
+                first_name=payload["callback_query"]["from"]["first_name"],
+                last_name=payload["callback_query"]["from"]["last_name"],
+            ),
+        )
+
+    def test_parse_command_as_message_in_group(self):
+        payload = self.command_as_message_in_group_request_payload
+        serialized_data = self._get_serialized_request_data(payload)
+        parsed_data = TelegramCommandParser.parse(serialized_data)
+        assert_that(
+            parsed_data,
+            has_attrs(
+                chat_id=payload["message"]["chat"]["id"],
+                chat_type=ChatType.GROUP,
+                username=payload["message"]["from"]["username"],
+                user_id=payload["message"]["from"]["id"],
+                data="/start",
+                replied_message_id=None,
+                sent_by_inline_keyboard=False,
+                first_name=payload["message"]["from"]["first_name"],
+                last_name=payload["message"]["from"]["last_name"],
+            ),
+        )
+
 
 class TestChatStatusChangeMessageParser(TelegramBotRequestsTestBase):
     def test_parse_status_change_bot_added_to_private_chat(self):

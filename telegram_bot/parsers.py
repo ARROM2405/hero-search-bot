@@ -76,14 +76,19 @@ class TelegramCommandParser(BaseParser):
         replied_message = callback_query["message"]
         replied_message_id = replied_message["message_id"]
         chat_data = replied_message["chat"]
-        author_data = replied_message["from"]
+        author_data = callback_query["from"]
+        sent_by_inline_keyboard = "inline_keyboard" in replied_message.get(
+            "reply_markup", {}
+        )
 
         return BotCommand(
             chat_id=chat_data["id"],
             chat_type=ChatType.from_payload_value(chat_data["type"]),
             username=author_data.get("username"),
+            user_id=author_data["id"],
             data=data,
             replied_message_id=replied_message_id,
+            sent_by_inline_keyboard=sent_by_inline_keyboard,
             first_name=author_data.get("first_name"),
             last_name=author_data.get("last_name"),
         )
@@ -98,6 +103,7 @@ class TelegramCommandParser(BaseParser):
             chat_id=chat_data["id"],
             chat_type=ChatType.from_payload_value(chat_data["type"]),
             username=author_data.get("username"),
+            user_id=author_data["id"],
             data=data,
             first_name=author_data.get("first_name"),
             last_name=author_data.get("last_name"),
@@ -112,3 +118,4 @@ class TelegramCommandParser(BaseParser):
 
         elif message := telegram_message.get("message"):
             return TelegramCommandParser._parse_command_as_message(message)
+        raise NotImplementedError

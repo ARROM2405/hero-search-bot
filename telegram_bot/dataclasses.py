@@ -32,6 +32,7 @@ class BotCommand:
     chat_id: int
     chat_type: ChatType
     username: str | None
+    user_id: int
     data: str
     replied_message_id: int | None = None
     sent_by_inline_keyboard: bool = False
