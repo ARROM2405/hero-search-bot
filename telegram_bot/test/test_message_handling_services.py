@@ -2,20 +2,30 @@ import copy
 import json
 from unittest import mock
 
-from precisely import assert_that, has_attrs, is_mapping
+from precisely import assert_that, has_attrs, is_mapping, is_sequence
 
 from telegram_bot.constants import ORDER_OF_MESSAGES, MESSAGES_MAPPING, BASE_URL
 from telegram_bot.enums import ChatType, UserActionType
-from telegram_bot.exceptions import TelegramMessageNotParsedException
+from telegram_bot.exceptions import (
+    TelegramMessageNotParsedException,
+    UnknownCommandException,
+)
 from telegram_bot.message_handling_services import (
     MessageHandler,
     MemberStatusChangeProcessor,
     BotCommandProcessor,
     UserMessageProcessor,
 )
-from telegram_bot.messages_texts import FIRST_INSTRUCTIONS, ALL_DATA_RECEIVED_RESPONSE
+from telegram_bot.messages_texts import (
+    FIRST_INSTRUCTIONS,
+    ALL_DATA_RECEIVED_RESPONSE,
+    INQUERY_MESSAGE_START,
+    CASE_ID_INQUERY,
+    INPUT_CONFIRMED_RESPONSE,
+    INPUT_NOT_CONFIRMED_RESPONSE,
+)
 from telegram_bot.models import BotStatusChange, TelegramUser
-from telegram_bot.parsers import UserMessageParser
+from telegram_bot.parsers import UserMessageParser, TelegramCommandParser
 from telegram_bot.sequential_messages_processor import SequentialMessagesProcessor
 from telegram_bot.test.base import TelegramBotRequestsTestBase
 
@@ -627,7 +637,8 @@ class TestBotCommandProcessor(TelegramBotRequestsTestBase):
             self.command_as_callback_in_private_chat_request_payload
         )
         payload["callback_query"]["message"]["chat"]["id"] = self.chat_id
-        payload["callback_query"]["message"]["id"] = self.message_id
+        payload["callback_query"]["message"]["message_id"] = self.message_id
+        payload["callback_query"]["data"] = "/start"
 
         serialized_data = self._get_serialized_request_data(payload)
         processor = BotCommandProcessor(serialized_data)
@@ -637,132 +648,612 @@ class TestBotCommandProcessor(TelegramBotRequestsTestBase):
             chat_id=self.chat_id, message_id=self.message_id
         )
 
-    def test_process_start_command_as_message_in_the_group(self):
-        raise AssertionError
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._remove_inline_keyboard_from_replied_message"
+    )
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._process_start_command"
+    )
+    def test_process_start_command_as_message_in_the_group(
+        self,
+        mock_process_command,
+        mock_remove_inline_keyboard,
+    ):
+        serialized_data = self._get_serialized_request_data(
+            self.command_as_message_in_group_request_payload
+        )
+        processor = BotCommandProcessor(serialized_data)
+        processor.process()
+        mock_process_command.assert_called_once()
+        mock_remove_inline_keyboard.assert_not_called()
 
     # command: /instructions_confirmed
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._remove_inline_keyboard_from_replied_message"
+    )
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._process_instructions_confirmed_command"
+    )
     def test_process_instructions_confirmed_command_in_the_private_chat_as_a_message(
         self,
+        mock_process_command,
+        mock_remove_inline_keyboard,
     ):
-        raise AssertionError
+        payload = copy.deepcopy(self.command_as_message_in_private_chat_request_payload)
+        payload["message"]["text"] = "/instructions_confirmed"
+        serialized_data = self._get_serialized_request_data(payload)
+        processor = BotCommandProcessor(serialized_data)
+        processor.process()
+        mock_process_command.assert_called_once()
+        mock_remove_inline_keyboard.assert_not_called()
 
-    @mock.patch("telegram_bot.message_handling_services.requests.post")
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._remove_inline_keyboard_from_replied_message"
+    )
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._process_instructions_confirmed_command"
+    )
     def test_process_instructions_confirmed_command_as_a_callback_in_the_private_chat(
-        self, mock_post
+        self,
+        mock_process_command,
+        mock_remove_inline_keyboard,
     ):
-        raise AssertionError
+        payload = copy.deepcopy(
+            self.command_as_callback_in_private_chat_request_payload
+        )
+        payload["callback_query"]["data"] = "/instructions_confirmed"
+        serialized_data = self._get_serialized_request_data(payload)
+        processor = BotCommandProcessor(serialized_data)
+        processor.process()
+        mock_process_command.assert_called_once()
+        mock_remove_inline_keyboard.assert_called_once()
 
-    def test_process_instructions_confirmed_command_as_message_in_the_group(self):
-        raise AssertionError
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._remove_inline_keyboard_from_replied_message"
+    )
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._process_instructions_confirmed_command"
+    )
+    def test_process_instructions_confirmed_command_as_message_in_the_group(
+        self,
+        mock_process_command,
+        mock_remove_inline_keyboard,
+    ):
+        payload = copy.deepcopy(self.command_as_message_in_group_request_payload)
+        payload["message"]["text"] = "/instructions_confirmed"
+        serialized_data = self._get_serialized_request_data(payload)
+        processor = BotCommandProcessor(serialized_data)
+        processor.process()
+        mock_process_command.assert_called_once()
+        mock_remove_inline_keyboard.assert_not_called()
 
     # command: /input_confirmed
-    def test_process_input_confirmed_command_in_the_private_chat_as_a_message(self):
-        raise AssertionError
+    @mock.patch(
+        "telegram_bot.message_handling_services.SequentialMessagesProcessor.save_confirmed_data"
+    )
+    def test_process_input_confirmed(self, mock_save_confirmed_data):
+        chat_id = 111
+        telegram_user_id = 222
+        telegram_user_first_name = "first_name"
+        payload = copy.deepcopy(
+            self.command_as_callback_in_private_chat_request_payload
+        )
 
-    @mock.patch("telegram_bot.message_handling_services.requests.post")
-    def test_process_input_confirmed_command_as_a_callback_in_the_private_chat(
-        self, mock_post
+        payload["callback_query"]["message"]["chat"]["id"] = chat_id
+        payload["callback_query"]["from"]["id"] = telegram_user_id
+        payload["callback_query"]["from"]["first_name"] = telegram_user_first_name
+        del payload["callback_query"]["from"]["username"]
+        del payload["callback_query"]["from"]["last_name"]
+        serialized_data = self._get_serialized_request_data(payload)
+
+        parsed_message = TelegramCommandParser.parse(serialized_data)
+
+        processor = BotCommandProcessor(telegram_message={})
+        processor.parsed_telegram_message = parsed_message
+        processor._process_input_confirmed_command()
+        telegram_user = TelegramUser.objects.get()
+        assert_that(
+            telegram_user,
+            has_attrs(
+                telegram_id=telegram_user_id,
+                username=None,
+                first_name=telegram_user_first_name,
+                last_name=None,
+            ),
+        )
+        mock_save_confirmed_data.assert_called_once_with(
+            user_id=telegram_user_id,
+            entry_author=telegram_user,
+        )
+
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._remove_inline_keyboard_from_replied_message"
+    )
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._process_input_confirmed_command"
+    )
+    def test_process_input_confirmed_command_in_the_private_chat_as_a_message(
+        self,
+        mock_process_command,
+        mock_remove_inline_keyboard,
     ):
-        raise AssertionError
+        payload = copy.deepcopy(self.command_as_message_in_group_request_payload)
+        payload["message"]["text"] = "/input_confirmed"
+        serialized_data = self._get_serialized_request_data(payload)
+        processor = BotCommandProcessor(serialized_data)
+        processor.process()
+        mock_process_command.assert_called_once()
+        mock_remove_inline_keyboard.assert_not_called()
 
-    def test_process_input_confirmed_command_as_message_in_the_group(self):
-        raise AssertionError
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._remove_inline_keyboard_from_replied_message"
+    )
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._process_input_confirmed_command"
+    )
+    def test_process_input_confirmed_command_as_a_callback_in_the_private_chat(
+        self,
+        mock_process_command,
+        mock_remove_inline_keyboard,
+    ):
+        payload = copy.deepcopy(
+            self.command_as_callback_in_private_chat_request_payload
+        )
+        payload["callback_query"]["data"] = "/input_confirmed"
+        serialized_data = self._get_serialized_request_data(payload)
+        processor = BotCommandProcessor(serialized_data)
+        processor.process()
+        mock_process_command.assert_called_once()
+        mock_remove_inline_keyboard.assert_called_once()
+
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._remove_inline_keyboard_from_replied_message"
+    )
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._process_input_confirmed_command"
+    )
+    def test_process_input_confirmed_command_as_message_in_the_group(
+        self,
+        mock_process_command,
+        mock_remove_inline_keyboard,
+    ):
+        payload = copy.deepcopy(self.command_as_message_in_group_request_payload)
+        payload["message"]["text"] = "/input_confirmed"
+        serialized_data = self._get_serialized_request_data(payload)
+        processor = BotCommandProcessor(serialized_data)
+        processor.process()
+        mock_process_command.assert_called_once()
+        mock_remove_inline_keyboard.assert_not_called()
 
     # command: /input_not_confirmed
-    def test_process_input_not_confirmed_command_in_the_private_chat_as_a_message(self):
-        raise AssertionError
+    @mock.patch(
+        "telegram_bot.message_handling_services.SequentialMessagesProcessor.remove_incorrect_input"
+    )
+    def test_process_input_not_confirmed(self, mock_remove_incorrect_input):
+        user_id = "1"
+        payload = copy.deepcopy(
+            self.command_as_callback_in_private_chat_request_payload
+        )
+        payload["callback_query"]["from"]["id"] = user_id
+        payload["callback_query"]["data"] = "/input_not_confirmed"
+        serialized_data = self._get_serialized_request_data(payload)
+        parsed_message = TelegramCommandParser.parse(payload)
+        processor = BotCommandProcessor(serialized_data)
+        processor.parsed_telegram_message = parsed_message
+        processor._process_input_not_confirmed_command()
+        mock_remove_incorrect_input.assert_called_once_with(user_id)
 
-    @mock.patch("telegram_bot.message_handling_services.requests.post")
-    def test_process_input_not_confirmed_command_as_a_callback_in_the_private_chat(
-        self, mock_post
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._remove_inline_keyboard_from_replied_message"
+    )
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._process_input_not_confirmed_command"
+    )
+    def test_process_input_not_confirmed_command_in_the_private_chat_as_a_message(
+        self,
+        mock_process_command,
+        mock_remove_inline_keyboard,
     ):
-        raise AssertionError
+        payload = copy.deepcopy(self.command_as_message_in_group_request_payload)
+        payload["message"]["text"] = "/input_not_confirmed"
+        serialized_data = self._get_serialized_request_data(payload)
+        processor = BotCommandProcessor(serialized_data)
+        processor.process()
+        mock_process_command.assert_called_once()
+        mock_remove_inline_keyboard.assert_not_called()
 
-    def test_process_input_not_confirmed_command_as_message_in_the_group(self):
-        raise AssertionError
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._remove_inline_keyboard_from_replied_message"
+    )
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._process_input_not_confirmed_command"
+    )
+    def test_process_input_not_confirmed_command_as_a_callback_in_the_private_chat(
+        self,
+        mock_process_command,
+        mock_remove_inline_keyboard,
+    ):
+        payload = copy.deepcopy(
+            self.command_as_callback_in_private_chat_request_payload
+        )
+        payload["callback_query"]["data"] = "/input_not_confirmed"
+        serialized_data = self._get_serialized_request_data(payload)
+        processor = BotCommandProcessor(serialized_data)
+        processor.process()
+        mock_process_command.assert_called_once()
+        mock_remove_inline_keyboard.assert_called_once()
+
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._remove_inline_keyboard_from_replied_message"
+    )
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._process_input_not_confirmed_command"
+    )
+    def test_process_input_not_confirmed_command_as_message_in_the_group(
+        self,
+        mock_process_command,
+        mock_remove_inline_keyboard,
+    ):
+        payload = copy.deepcopy(self.command_as_message_in_group_request_payload)
+        payload["message"]["text"] = "/input_not_confirmed"
+        serialized_data = self._get_serialized_request_data(payload)
+        processor = BotCommandProcessor(serialized_data)
+        processor.process()
+        mock_process_command.assert_called_once()
+        mock_remove_inline_keyboard.assert_not_called()
 
     # command: /unknown
     def test_process_unknown_command_in_the_private_chat_as_a_message(self):
-        raise AssertionError
+        with self.assertRaises(UnknownCommandException):
+            payload = copy.deepcopy(
+                self.command_as_message_in_private_chat_request_payload
+            )
+            payload["message"]["text"] = "/unknown_command"
+            serialized_data = self._get_serialized_request_data(payload)
+            processor = BotCommandProcessor(serialized_data)
+            processor.process()
 
-    @mock.patch("telegram_bot.message_handling_services.requests.post")
-    def test_process_unknown_command_as_a_callback_in_the_private_chat(self, mock_post):
-        raise AssertionError
+    def test_process_unknown_command_as_a_callback_in_the_private_chat(self):
+        with self.assertRaises(UnknownCommandException):
+            payload = copy.deepcopy(
+                self.command_as_callback_in_private_chat_request_payload
+            )
+            payload["callback_query"]["data"] = "/unknown_command"
+            serialized_data = self._get_serialized_request_data(payload)
+            processor = BotCommandProcessor(serialized_data)
+            processor.process()
 
     def test_process_unknown_command_as_message_in_the_group(self):
-        raise AssertionError
+        with self.assertRaises(UnknownCommandException):
+            payload = copy.deepcopy(self.command_as_message_in_group_request_payload)
+            payload["message"]["text"] = "/unknown_command"
+            serialized_data = self._get_serialized_request_data(payload)
+            processor = BotCommandProcessor(serialized_data)
+            processor.process()
 
     # prepare_response method
 
     # command: /start
-    def test_prepare_response_start_command_in_the_private_chat_as_a_message(self):
-        raise AssertionError
+    def test_get_start_command_response(self):
+        payload = copy.deepcopy(self.command_as_message_in_private_chat_request_payload)
+        payload["message"]["text"] = "/start"
+        serialized_data = self._get_serialized_request_data(payload)
+        parsed_message = TelegramCommandParser.parse(serialized_data)
+        processor = BotCommandProcessor(serialized_data)
+        processor.parsed_telegram_message = parsed_message
+        response = processor._get_start_command_response()
+        assert_that(
+            response,
+            is_mapping(
+                {
+                    "text": FIRST_INSTRUCTIONS,
+                    "chat_id": payload["message"]["chat"]["id"],
+                    "reply_markup": json.dumps(
+                        {
+                            "inline_keyboard": [
+                                [
+                                    {
+                                        "text": "Зрозуміло, починаємо",
+                                        "callback_data": "/instructions_confirmed",
+                                    }
+                                ]
+                            ],
+                        }
+                    ),
+                }
+            ),
+        )
 
-    @mock.patch("telegram_bot.message_handling_services.requests.post")
-    def test_prepare_response_start_command_as_a_callback_in_the_private_chat(
-        self, mock_post
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._get_start_command_response"
+    )
+    def test_prepare_response_start_command_in_the_private_chat_as_a_message(
+        self, mock_get_response
     ):
-        raise AssertionError
+        payload = copy.deepcopy(self.command_as_message_in_private_chat_request_payload)
+        payload["message"]["text"] = "/start"
+        serialized_data = self._get_serialized_request_data(payload)
+        parsed_message = TelegramCommandParser.parse(serialized_data)
+        processor = BotCommandProcessor(serialized_data)
+        processor.parsed_telegram_message = parsed_message
+        processor.prepare_response()
+        mock_get_response.assert_called_once()
 
-    def test_prepare_response_start_command_as_message_in_the_group(self):
-        raise AssertionError
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._get_start_command_response"
+    )
+    def test_prepare_response_start_command_as_a_callback_in_the_private_chat(
+        self, mock_get_response
+    ):
+        payload = copy.deepcopy(
+            self.command_as_callback_in_private_chat_request_payload
+        )
+        payload["callback_query"]["data"] = "/start"
+        serialized_data = self._get_serialized_request_data(payload)
+        parsed_message = TelegramCommandParser.parse(serialized_data)
+        processor = BotCommandProcessor(serialized_data)
+        processor.parsed_telegram_message = parsed_message
+        processor.prepare_response()
+        mock_get_response.assert_called_once()
+
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._get_start_command_response"
+    )
+    def test_prepare_response_start_command_as_message_in_the_group(
+        self, mock_get_response
+    ):
+        payload = copy.deepcopy(self.command_as_message_in_group_request_payload)
+        payload["message"]["text"] = "/start"
+        serialized_data = self._get_serialized_request_data(payload)
+        parsed_message = TelegramCommandParser.parse(serialized_data)
+        processor = BotCommandProcessor(serialized_data)
+        processor.parsed_telegram_message = parsed_message
+        processor.prepare_response()
+        mock_get_response.assert_not_called()
 
     # command: /instructions_confirmed
+    def test_get_instructions_confirmed_command_response(self):
+        payload = copy.deepcopy(self.command_as_message_in_private_chat_request_payload)
+        payload["message"]["text"] = "/instructions_confirmed"
+        serialized_data = self._get_serialized_request_data(payload)
+        parsed_message = TelegramCommandParser.parse(serialized_data)
+        processor = BotCommandProcessor(serialized_data)
+        processor.parsed_telegram_message = parsed_message
+        response = processor._get_instructions_confirmed_command_response()
+        assert_that(
+            response,
+            is_mapping(
+                {
+                    "text": INQUERY_MESSAGE_START + CASE_ID_INQUERY,
+                    "chat_id": payload["message"]["chat"]["id"],
+                    "reply_markup": None,
+                }
+            ),
+        )
+
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._get_instructions_confirmed_command_response"
+    )
     def test_prepare_response_instructions_confirmed_command_in_the_private_chat_as_a_message(
-        self,
+        self, mock_get_response
     ):
-        raise AssertionError
+        payload = copy.deepcopy(self.command_as_message_in_private_chat_request_payload)
+        payload["message"]["text"] = "/instructions_confirmed"
+        serialized_data = self._get_serialized_request_data(payload)
+        parsed_message = TelegramCommandParser.parse(serialized_data)
+        processor = BotCommandProcessor(serialized_data)
+        processor.parsed_telegram_message = parsed_message
+        processor.prepare_response()
+        mock_get_response.assert_called_once()
 
-    @mock.patch("telegram_bot.message_handling_services.requests.post")
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._get_instructions_confirmed_command_response"
+    )
     def test_prepare_response_instructions_confirmed_command_as_a_callback_in_the_private_chat(
-        self, mock_post
+        self, mock_get_response
     ):
-        raise AssertionError
+        payload = copy.deepcopy(
+            self.command_as_callback_in_private_chat_request_payload
+        )
+        payload["callback_query"]["data"] = "/instructions_confirmed"
+        serialized_data = self._get_serialized_request_data(payload)
+        parsed_message = TelegramCommandParser.parse(serialized_data)
+        processor = BotCommandProcessor(serialized_data)
+        processor.parsed_telegram_message = parsed_message
+        processor.prepare_response()
+        mock_get_response.assert_called_once()
 
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._get_instructions_confirmed_command_response"
+    )
     def test_prepare_response_instructions_confirmed_command_as_message_in_the_group(
-        self,
+        self, mock_get_response
     ):
-        raise AssertionError
+        payload = copy.deepcopy(self.command_as_message_in_group_request_payload)
+        payload["message"]["text"] = "/instructions_confirmed"
+        serialized_data = self._get_serialized_request_data(payload)
+        parsed_message = TelegramCommandParser.parse(serialized_data)
+        processor = BotCommandProcessor(serialized_data)
+        processor.parsed_telegram_message = parsed_message
+        processor.prepare_response()
+        mock_get_response.assert_not_called()
 
     # command: /input_confirmed
+    def test_get_input_confirmed_command_response(self):
+        payload = copy.deepcopy(self.command_as_message_in_private_chat_request_payload)
+        payload["message"]["text"] = "/input_confirmed"
+        serialized_data = self._get_serialized_request_data(payload)
+        parsed_message = TelegramCommandParser.parse(serialized_data)
+        processor = BotCommandProcessor(serialized_data)
+        processor.parsed_telegram_message = parsed_message
+        response = processor._get_input_confirmed_command_response()
+        assert_that(
+            response,
+            is_mapping(
+                {
+                    "text": INPUT_CONFIRMED_RESPONSE,
+                    "chat_id": payload["message"]["chat"]["id"],
+                    "reply_markup": None,
+                }
+            ),
+        )
+
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._get_input_confirmed_command_response"
+    )
     def test_prepare_response_input_confirmed_command_in_the_private_chat_as_a_message(
-        self,
+        self, mock_get_response
     ):
-        raise AssertionError
+        payload = copy.deepcopy(self.command_as_message_in_private_chat_request_payload)
+        payload["message"]["text"] = "/input_confirmed"
+        serialized_data = self._get_serialized_request_data(payload)
+        parsed_message = TelegramCommandParser.parse(serialized_data)
+        processor = BotCommandProcessor(serialized_data)
+        processor.parsed_telegram_message = parsed_message
+        processor.prepare_response()
+        mock_get_response.assert_called_once()
 
-    @mock.patch("telegram_bot.message_handling_services.requests.post")
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._get_input_confirmed_command_response"
+    )
     def test_prepare_response_input_confirmed_command_as_a_callback_in_the_private_chat(
-        self, mock_post
+        self, mock_get_response
     ):
-        raise AssertionError
+        payload = copy.deepcopy(
+            self.command_as_callback_in_private_chat_request_payload
+        )
+        payload["callback_query"]["data"] = "/input_confirmed"
+        serialized_data = self._get_serialized_request_data(payload)
+        parsed_message = TelegramCommandParser.parse(serialized_data)
+        processor = BotCommandProcessor(serialized_data)
+        processor.parsed_telegram_message = parsed_message
+        processor.prepare_response()
+        mock_get_response.assert_called_once()
 
-    def test_prepare_response_input_confirmed_command_as_message_in_the_group(self):
-        raise AssertionError
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._get_input_confirmed_command_response"
+    )
+    def test_prepare_response_input_confirmed_command_as_message_in_the_group(
+        self, mock_get_response
+    ):
+        payload = copy.deepcopy(self.command_as_message_in_group_request_payload)
+        payload["message"]["text"] = "/input_confirmed"
+        serialized_data = self._get_serialized_request_data(payload)
+        parsed_message = TelegramCommandParser.parse(serialized_data)
+        processor = BotCommandProcessor(serialized_data)
+        processor.parsed_telegram_message = parsed_message
+        processor.prepare_response()
+        mock_get_response.assert_not_called()
 
     # command: /input_not_confirmed
+    def test_get_input_not_confirmed_command_response(self):
+        payload = copy.deepcopy(self.command_as_message_in_private_chat_request_payload)
+        payload["message"]["text"] = "/input_not_confirmed"
+        serialized_data = self._get_serialized_request_data(payload)
+        parsed_message = TelegramCommandParser.parse(serialized_data)
+        processor = BotCommandProcessor(serialized_data)
+        processor.parsed_telegram_message = parsed_message
+        response = processor._get_input_not_confirmed_command_response()
+        assert_that(
+            response,
+            is_mapping(
+                {
+                    "text": INPUT_NOT_CONFIRMED_RESPONSE,
+                    "chat_id": payload["message"]["chat"]["id"],
+                    "reply_markup": json.dumps(
+                        {
+                            "inline_keyboard": [
+                                [
+                                    {
+                                        "text": "Зрозуміло, починаємо",
+                                        "callback_data": "/instructions_confirmed",
+                                    }
+                                ]
+                            ],
+                        }
+                    ),
+                }
+            ),
+        )
+
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._get_input_not_confirmed_command_response"
+    )
     def test_prepare_response_input_not_confirmed_command_in_the_private_chat_as_a_message(
-        self,
+        self, mock_get_response
     ):
-        raise AssertionError
+        payload = copy.deepcopy(self.command_as_message_in_private_chat_request_payload)
+        payload["message"]["text"] = "/input_not_confirmed"
+        serialized_data = self._get_serialized_request_data(payload)
+        parsed_message = TelegramCommandParser.parse(serialized_data)
+        processor = BotCommandProcessor(serialized_data)
+        processor.parsed_telegram_message = parsed_message
+        processor.prepare_response()
+        mock_get_response.assert_called_once()
 
-    @mock.patch("telegram_bot.message_handling_services.requests.post")
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._get_input_not_confirmed_command_response"
+    )
     def test_prepare_response_input_not_confirmed_command_as_a_callback_in_the_private_chat(
-        self, mock_post
+        self, mock_get_response
     ):
-        raise AssertionError
+        payload = copy.deepcopy(
+            self.command_as_callback_in_private_chat_request_payload
+        )
+        payload["callback_query"]["data"] = "/input_not_confirmed"
+        serialized_data = self._get_serialized_request_data(payload)
+        parsed_message = TelegramCommandParser.parse(serialized_data)
+        processor = BotCommandProcessor(serialized_data)
+        processor.parsed_telegram_message = parsed_message
+        processor.prepare_response()
+        mock_get_response.assert_called_once()
 
-    def test_prepare_response_input_not_confirmed_command_as_message_in_the_group(self):
-        raise AssertionError
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._get_input_not_confirmed_command_response"
+    )
+    def test_prepare_response_input_not_confirmed_command_as_message_in_the_group(
+        self, mock_get_response
+    ):
+        payload = copy.deepcopy(self.command_as_message_in_group_request_payload)
+        payload["message"]["text"] = "/input_not_confirmed"
+        serialized_data = self._get_serialized_request_data(payload)
+        parsed_message = TelegramCommandParser.parse(serialized_data)
+        processor = BotCommandProcessor(serialized_data)
+        processor.parsed_telegram_message = parsed_message
+        processor.prepare_response()
+        mock_get_response.assert_not_called()
 
     # command: /unknown
     def test_prepare_response_unknown_command_in_the_private_chat_as_a_message(self):
-        raise AssertionError
+        payload = copy.deepcopy(self.command_as_message_in_private_chat_request_payload)
+        payload["message"]["text"] = "/unknown_command"
+        serialized_data = self._get_serialized_request_data(payload)
+        parsed_message = TelegramCommandParser.parse(serialized_data)
+        processor = BotCommandProcessor(serialized_data)
+        processor.parsed_telegram_message = parsed_message
+        with self.assertRaises(UnknownCommandException):
+            processor.prepare_response()
 
-    @mock.patch("telegram_bot.message_handling_services.requests.post")
     def test_prepare_response_unknown_command_as_a_callback_in_the_private_chat(
-        self, mock_post
+        self,
     ):
-        raise AssertionError
+        payload = copy.deepcopy(
+            self.command_as_callback_in_private_chat_request_payload
+        )
+        payload["callback_query"]["data"] = "/unknown_command"
+        serialized_data = self._get_serialized_request_data(payload)
+        parsed_message = TelegramCommandParser.parse(serialized_data)
+        processor = BotCommandProcessor(serialized_data)
+        processor.parsed_telegram_message = parsed_message
+        with self.assertRaises(UnknownCommandException):
+            processor.prepare_response()
 
-    def test_prepare_response_unknown_command_as_message_in_the_group(self):
-        raise AssertionError
+    def test_prepare_response_inknown_command_as_message_in_the_group(self):
+        payload = copy.deepcopy(self.command_as_message_in_group_request_payload)
+        payload["message"]["text"] = "/unknown_command"
+        serialized_data = self._get_serialized_request_data(payload)
+        parsed_message = TelegramCommandParser.parse(serialized_data)
+        processor = BotCommandProcessor(serialized_data)
+        processor.parsed_telegram_message = parsed_message
+        response = processor.prepare_response()
+        assert response is None

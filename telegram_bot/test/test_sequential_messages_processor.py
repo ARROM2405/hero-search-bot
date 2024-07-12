@@ -15,7 +15,7 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
             redis_mock.hgetall.return_value = {}
             processor = SequentialMessagesProcessor(
                 message_data=message_data,
-                chat_id=chat_id,
+                user_id=chat_id,
             )
             assert (
                 processor.current_message_key,
@@ -28,7 +28,7 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
             redis_mock.hgetall.return_value = {b"case_id": "123123"}
             processor = SequentialMessagesProcessor(
                 message_data=message_data,
-                chat_id=chat_id,
+                user_id=chat_id,
             )
             assert (
                 processor.current_message_key,
@@ -51,7 +51,7 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
             }
             processor = SequentialMessagesProcessor(
                 message_data=message_data,
-                chat_id=chat_id,
+                user_id=chat_id,
             )
             assert (
                 processor.current_message_key,
@@ -75,7 +75,7 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
             }
             processor = SequentialMessagesProcessor(
                 message_data=message_data,
-                chat_id=chat_id,
+                user_id=chat_id,
             )
             assert (
                 processor.current_message_key,

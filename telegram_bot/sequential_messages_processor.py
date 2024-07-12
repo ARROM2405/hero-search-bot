@@ -15,9 +15,9 @@ client = redis.Redis(host=os.getenv("REDIS_HOST"), port=os.getenv("REDIS_PORT"),
 
 
 class SequentialMessagesProcessor:
-    def __init__(self, message_data: str, chat_id: int):
+    def __init__(self, message_data: str, user_id: int):
         self.message_data = message_data
-        self.chat_id = chat_id
+        self.user_id = user_id
         self.current_message_key, self.next_message_key = (
             self._get_current_and_next_message_keys()
         )
@@ -25,7 +25,7 @@ class SequentialMessagesProcessor:
     def _get_current_and_next_message_keys(self) -> tuple[str, str | None]:
         ordered_message_keys = copy.copy(ORDER_OF_MESSAGES)
         saved_messages = client.hgetall(
-            self.chat_id
+            self.user_id
         )  # keys returned as a binary strings
         messages_not_provided_yet = [
             _ for _ in ordered_message_keys if _.encode() not in saved_messages
@@ -42,8 +42,8 @@ class SequentialMessagesProcessor:
         raise AllDataReceivedException  # TODO: Probably other type of error should be used here
 
     def _create_new_redis_saved_data_set(self, mapping: dict[str, str]):
-        client.hset(self.chat_id, mapping={**mapping})
-        client.expire(self.chat_id, 60 * 30)
+        client.hset(self.user_id, mapping={**mapping})
+        client.expire(self.user_id, 60 * 30)
 
     def save_message(self):
         if self.current_message_key == ORDER_OF_MESSAGES[0]:
@@ -52,7 +52,7 @@ class SequentialMessagesProcessor:
             )
         else:
             client.hset(
-                self.chat_id, mapping={self.current_message_key: self.message_data}
+                self.user_id, mapping={self.current_message_key: self.message_data}
             )
 
     def get_response_text(self) -> str:
@@ -61,7 +61,7 @@ class SequentialMessagesProcessor:
         raise AllDataReceivedException
 
     def get_completed_input_confirmation_text(self) -> str:
-        input_data = client.hgetall(name=self.chat_id)
+        input_data = client.hgetall(name=self.user_id)
         return f"""Будьласка підтвердіть чи всі введені дані коректні.
         Номер справи в реєстрі: {input_data["case_id".encode()].decode()}
         Прізвище героя: {input_data["hero_last_name".encode()].decode()}
@@ -77,12 +77,12 @@ class SequentialMessagesProcessor:
         """
 
     @staticmethod
-    def remove_incorrect_input(chat_id: int):
-        client.delete(chat_id)
+    def remove_incorrect_input(user_id: int):
+        client.delete(user_id)
 
     @staticmethod
-    def save_confirmed_data(chat_id: int, entry_author: TelegramUser) -> HeroData:
-        data = client.hgetall(chat_id)
+    def save_confirmed_data(user_id: int, entry_author: TelegramUser) -> HeroData:
+        data = client.hgetall(user_id)
         print("saved_input:", end=" ")
         print(data)
         hero_data = HeroData.objects.create(
@@ -112,7 +112,7 @@ class SequentialMessagesProcessor:
             ),
             author=entry_author,
         )
-        client.delete(chat_id)
+        client.delete(user_id)
         return hero_data
 
     # TODO: WHAT IF CHAT EXPIRED BUT THE MESSAGE IS RECEIVED? PROCESS AS A START COMMAND BUT WITH ADDITIONAL

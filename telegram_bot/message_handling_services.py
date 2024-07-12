@@ -8,6 +8,7 @@ from telegram_bot.enums import UserActionType, ChatType
 from telegram_bot.exceptions import (
     TelegramMessageNotParsedException,
     AllDataReceivedException,
+    UnknownCommandException,
 )
 from telegram_bot.messages_texts import (
     FIRST_INSTRUCTIONS,
@@ -77,7 +78,7 @@ class UserMessageProcessor(TelegramMessageProcessorBase):
             raise TelegramMessageNotParsedException
         self.sequential_messages_processor = SequentialMessagesProcessor(
             message_data=self.parsed_telegram_message.text,
-            chat_id=self.parsed_telegram_message.chat_id,
+            user_id=self.parsed_telegram_message.chat_id,
         )
 
     def process(self):
@@ -158,6 +159,8 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
                 self._process_input_confirmed_command()
             case "/input_not_confirmed":
                 self._process_input_not_confirmed_command()
+            case _:
+                raise UnknownCommandException
 
     def _process_start_command(self):
         pass
@@ -167,25 +170,25 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
 
     def _process_input_confirmed_command(self):
         data_entry_author, _ = TelegramUser.objects.get_or_create(
-            telegram_id=self.parsed_telegram_message.chat_id,
+            telegram_id=self.parsed_telegram_message.user_id,
             defaults={
-                "telegram_id": self.parsed_telegram_message.chat_id,
+                "telegram_id": self.parsed_telegram_message.user_id,
                 "username": self.parsed_telegram_message.username,
                 "first_name": self.parsed_telegram_message.first_name,
                 "last_name": self.parsed_telegram_message.last_name,
             },
         )
         SequentialMessagesProcessor.save_confirmed_data(
-            chat_id=self.parsed_telegram_message.chat_id,
+            user_id=self.parsed_telegram_message.user_id,
             entry_author=data_entry_author,
         )
 
     def _process_input_not_confirmed_command(self):
         SequentialMessagesProcessor.remove_incorrect_input(
-            self.parsed_telegram_message.chat_id
+            self.parsed_telegram_message.user_id
         )
 
-    def _get_start_command_response(self) -> dict:
+    def _get_start_command_response(self) -> dict:  # TODO: change typing to typed dict?
         response_text = FIRST_INSTRUCTIONS
         response_reply_markup = {
             "inline_keyboard": [
@@ -259,6 +262,8 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
                     return self._get_input_confirmed_command_response()
                 case "/input_not_confirmed":
                     return self._get_input_not_confirmed_command_response()
+                case _:
+                    raise UnknownCommandException
 
 
 class MessageHandler:
