@@ -206,7 +206,6 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
             reply_markup=response_reply_markup,
             chat_id=self.parsed_telegram_message.chat_id,
         )
-        print("response_object", response_object)
         payload = response_object.to_payload()
         return payload
 
@@ -216,7 +215,6 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
             text=response_text,
             chat_id=self.parsed_telegram_message.chat_id,
         )
-        print("response_object", response_object)
         payload = response_object.to_payload()
         return payload
 
@@ -225,7 +223,6 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
             text=INPUT_CONFIRMED_RESPONSE,
             chat_id=self.parsed_telegram_message.chat_id,
         )
-        print("response_object", response_object)
         payload = response_object.to_payload()
         return payload
 

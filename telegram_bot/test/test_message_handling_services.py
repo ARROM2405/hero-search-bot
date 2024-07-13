@@ -913,7 +913,8 @@ class TestBotCommandProcessor(TelegramBotRequestsTestBase):
             processor = BotCommandProcessor(serialized_data)
             processor.process()
 
-    def test_process_unknown_command_as_a_callback_in_the_private_chat(self):
+    @mock.patch("telegram_bot.message_handling_services.requests.post")
+    def test_process_unknown_command_as_a_callback_in_the_private_chat(self, mock_post):
         with self.assertRaises(UnknownCommandException):
             payload = copy.deepcopy(
                 self.command_as_callback_in_private_chat_request_payload
