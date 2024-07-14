@@ -93,21 +93,24 @@ class CallBackQuerySerializer(WithFromFieldSerializerBase):
 
 class TelegramBotSerializer(serializers.Serializer):
     message = MessageSerializer(required=False)
+    edited_message = MessageSerializer(required=False)
     my_chat_member = ChatMemberSerializer(required=False)
     callback_query = CallBackQuerySerializer(required=False)
 
     def validate(self, attrs):
+        edited_message = attrs.get("edited_message")
         message = attrs.get("message")
         my_chat_member = attrs.get("my_chat_member")
         callback_query = attrs.get("callback_query")
         if not any(
             [
+                edited_message,
                 message,
                 my_chat_member,
                 callback_query,
             ]
         ):
             raise ValidationError(
-                "message or my_chat_member or callback_query value has to be provided."
+                "edited_message or message or my_chat_member or callback_query value has to be provided."
             )
         return super().validate(attrs)

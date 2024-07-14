@@ -178,6 +178,31 @@ MESSAGE_IN_PRIVATE_CHAT = {
     "update_id": 333333333,
 }
 
+MESSAGE_EDITED = {
+    "edited_message": {
+        "chat": {
+            "first_name": "SomeFName",
+            "id": 111111111,
+            "last_name": "SomeLName",
+            "username": "SomeUserName",
+            "type": "private",
+        },
+        "date": 1720960475,
+        "edit_date": 1720960484,
+        "from": {
+            "first_name": "SomeFName",
+            "id": 111111111,
+            "is_bot": False,
+            "language_code": "uk",
+            "last_name": "SomeLName",
+            "username": "SomeUserName",
+        },
+        "message_id": 222,
+        "text": "SomeText",
+    },
+    "update_id": 508043956,
+}
+
 # GROUP
 
 BOT_ADDED_TO_THE_GROUP = {

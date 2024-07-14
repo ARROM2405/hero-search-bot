@@ -82,6 +82,8 @@ class UserMessageProcessor(TelegramMessageProcessorBase):
         )
 
     def process(self):
+        if "edited_message" in self.telegram_message:
+            return
         self.parsed_telegram_message = self.PARSER.parse(self.telegram_message)
         print("parsed_message", self.parsed_telegram_message)
         try:
@@ -91,6 +93,8 @@ class UserMessageProcessor(TelegramMessageProcessorBase):
             self.all_data_received = True
 
     def prepare_response(self) -> dict:
+        if "edited_message" in self.telegram_message:
+            return
         reply_markup = None
         if not self.sequential_messages_processor and self.all_data_received:
             response_text = ALL_DATA_RECEIVED_RESPONSE
@@ -277,6 +281,9 @@ class MessageHandler:
             elif "left_chat_member" in self.telegram_message["message"]:
                 return MemberStatusChangeProcessor(self.telegram_message)
             return UserMessageProcessor(self.telegram_message)
+        elif "edited_message" in self.telegram_message:
+            return UserMessageProcessor(self.telegram_message)
+
         elif "my_chat_member" in self.telegram_message:
             return MemberStatusChangeProcessor(self.telegram_message)
         raise NotImplementedError
