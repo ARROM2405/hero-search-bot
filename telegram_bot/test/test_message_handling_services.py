@@ -1047,6 +1047,79 @@ class TestBotCommandProcessor(TelegramBotRequestsTestBase):
         mock_process_command.assert_called_once()
         mock_remove_inline_keyboard.assert_not_called()
 
+    # command: /continue_input
+    def test_process_continue_input(self):
+        user_id = "1"
+        payload = copy.deepcopy(
+            self.command_as_callback_in_private_chat_request_payload
+        )
+        payload["callback_query"]["from"]["id"] = user_id
+        payload["callback_query"]["data"] = "/continue_input"
+        serialized_data = self._get_serialized_request_data(payload)
+        parsed_message = TelegramCommandParser.parse(payload)
+        processor = BotCommandProcessor(serialized_data)
+        processor.parsed_telegram_message = parsed_message
+        assert processor.process() is None
+
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._remove_inline_keyboard_from_replied_message"
+    )
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._process_continue_input_command"
+    )
+    def test_process_continue_input_command_in_the_private_chat_as_a_message(
+        self,
+        mock_process_command,
+        mock_remove_inline_keyboard,
+    ):
+        payload = copy.deepcopy(self.command_as_message_in_group_request_payload)
+        payload["message"]["text"] = "/continue_input"
+        serialized_data = self._get_serialized_request_data(payload)
+        processor = BotCommandProcessor(serialized_data)
+        processor.process()
+        mock_process_command.assert_called_once()
+        mock_remove_inline_keyboard.assert_not_called()
+
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._remove_inline_keyboard_from_replied_message"
+    )
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._process_continue_input_command"
+    )
+    def test_process_continue_input_command_as_a_callback_in_the_private_chat(
+        self,
+        mock_process_command,
+        mock_remove_inline_keyboard,
+    ):
+        payload = copy.deepcopy(
+            self.command_as_callback_in_private_chat_request_payload
+        )
+        payload["callback_query"]["data"] = "/continue_input"
+        serialized_data = self._get_serialized_request_data(payload)
+        processor = BotCommandProcessor(serialized_data)
+        processor.process()
+        mock_process_command.assert_called_once()
+        mock_remove_inline_keyboard.assert_called_once()
+
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._remove_inline_keyboard_from_replied_message"
+    )
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._process_continue_input_command"
+    )
+    def test_process_continue_input_command_as_message_in_the_group(
+        self,
+        mock_process_command,
+        mock_remove_inline_keyboard,
+    ):
+        payload = copy.deepcopy(self.command_as_message_in_group_request_payload)
+        payload["message"]["text"] = "/continue_input"
+        serialized_data = self._get_serialized_request_data(payload)
+        processor = BotCommandProcessor(serialized_data)
+        processor.process()
+        mock_process_command.assert_called_once()
+        mock_remove_inline_keyboard.assert_not_called()
+
     # command: /unknown
     def test_process_unknown_command_in_the_private_chat_as_a_message(self):
         with self.assertRaises(UnknownCommandException):
@@ -1429,6 +1502,77 @@ class TestBotCommandProcessor(TelegramBotRequestsTestBase):
     ):
         payload = copy.deepcopy(self.command_as_message_in_group_request_payload)
         payload["message"]["text"] = "/remove_and_restart_input"
+        serialized_data = self._get_serialized_request_data(payload)
+        parsed_message = TelegramCommandParser.parse(serialized_data)
+        processor = BotCommandProcessor(serialized_data)
+        processor.parsed_telegram_message = parsed_message
+        processor.prepare_response()
+        mock_get_response.assert_not_called()
+
+    # command: /continue_input
+    @mock.patch(
+        "telegram_bot.message_handling_services.SequentialMessagesProcessor.get_response_text"
+    )
+    def test_get_continue_input_command_response(self, mock_get_response_text):
+        mock_get_response_text.return_value = MESSAGES_MAPPING["hero_last_name"]
+        payload = copy.deepcopy(self.command_as_message_in_private_chat_request_payload)
+        payload["message"]["text"] = "/continue_input"
+        serialized_data = self._get_serialized_request_data(payload)
+        parsed_message = TelegramCommandParser.parse(serialized_data)
+        processor = BotCommandProcessor(serialized_data)
+        processor.parsed_telegram_message = parsed_message
+        response = processor._get_continue_input_command_response()
+        assert_that(
+            response,
+            is_mapping(
+                {
+                    "text": MESSAGES_MAPPING["hero_last_name"],
+                    "chat_id": payload["message"]["chat"]["id"],
+                    "reply_markup": None,
+                }
+            ),
+        )
+
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._get_continue_input_command_response"
+    )
+    def test_prepare_response_continue_input_command_in_the_private_chat_as_a_message(
+        self, mock_get_response
+    ):
+        payload = copy.deepcopy(self.command_as_message_in_private_chat_request_payload)
+        payload["message"]["text"] = "/continue_input"
+        serialized_data = self._get_serialized_request_data(payload)
+        parsed_message = TelegramCommandParser.parse(serialized_data)
+        processor = BotCommandProcessor(serialized_data)
+        processor.parsed_telegram_message = parsed_message
+        processor.prepare_response()
+        mock_get_response.assert_called_once()
+
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._get_continue_input_command_response"
+    )
+    def test_prepare_response_continue_input_command_as_a_callback_in_the_private_chat(
+        self, mock_get_response
+    ):
+        payload = copy.deepcopy(
+            self.command_as_callback_in_private_chat_request_payload
+        )
+        payload["callback_query"]["data"] = "/continue_input"
+        serialized_data = self._get_serialized_request_data(payload)
+        parsed_message = TelegramCommandParser.parse(serialized_data)
+        processor = BotCommandProcessor(serialized_data)
+        processor.parsed_telegram_message = parsed_message
+        processor.prepare_response()
+        mock_get_response.assert_called_once()
+
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._get_continue_input_command_response"
+    )
+    def test_prepare_response_continue_input_command_as_message_in_the_group(
+        self, mock_get_response
+    ):
+        payload = copy.deepcopy(self.command_as_message_in_group_request_payload)
+        payload["message"]["text"] = "/continue_input"
         serialized_data = self._get_serialized_request_data(payload)
         parsed_message = TelegramCommandParser.parse(serialized_data)
         processor = BotCommandProcessor(serialized_data)

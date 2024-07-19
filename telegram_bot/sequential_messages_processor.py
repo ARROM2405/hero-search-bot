@@ -15,7 +15,7 @@ client = redis.Redis(host=os.getenv("REDIS_HOST"), port=os.getenv("REDIS_PORT"),
 
 
 class SequentialMessagesProcessor:
-    def __init__(self, message_data: str, user_id: int):
+    def __init__(self, message_data: str | None, user_id: int):
         self.message_data = message_data
         self.user_id = user_id
         self.current_message_key, self.next_message_key = (

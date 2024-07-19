@@ -192,6 +192,8 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
                 self._process_input_not_confirmed_command()
             case "/remove_and_restart_input":
                 self._process_remove_and_restart_input_command()
+            case "/continue_input":
+                self._process_continue_input_command()
             case _:
                 raise UnknownCommandException
 
@@ -225,6 +227,9 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
         SequentialMessagesProcessor.remove_incorrect_input(
             self.parsed_telegram_message.user_id
         )
+
+    def _process_continue_input_command(self):
+        pass
 
     def _get_start_command_response(self) -> dict:  # TODO: change typing to typed dict?
         response_text = FIRST_INSTRUCTIONS
@@ -289,6 +294,17 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
     def _get_remove_and_restart_input_command_response(self):
         return self._get_instructions_confirmed_command_response()
 
+    def _get_continue_input_command_response(self):
+        response_text = SequentialMessagesProcessor(
+            message_data=None,
+            user_id=self.parsed_telegram_message.user_id,
+        ).get_response_text()
+        response_object = ResponseMessage(
+            text=response_text,
+            chat_id=self.parsed_telegram_message.chat_id,
+        )
+        return response_object.to_payload()
+
     def prepare_response(self) -> dict | None:
         if self.parsed_telegram_message.chat_type is not ChatType.GROUP:
             match self.parsed_telegram_message.data:
@@ -302,6 +318,8 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
                     return self._get_input_not_confirmed_command_response()
                 case "/remove_and_restart_input":
                     return self._get_remove_and_restart_input_command_response()
+                case "/continue_input":
+                    return self._get_continue_input_command_response()
                 case _:
                     raise UnknownCommandException
 
