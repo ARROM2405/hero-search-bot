@@ -32,3 +32,5 @@ INPUT_NOT_CONFIRMED_RESPONSE = (
 ALL_DATA_RECEIVED_RESPONSE = (
     "Від вас отримані всі дані. Якщо це не так, будьласка зверніться до <link_to_admin>"
 )
+
+EDITED_MESSAGE_RESPONSE = "Нажаль я не підтримую редагування повідомлень. Чи хотіли б ви ввести дані з самого початку?"

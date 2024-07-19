@@ -39,6 +39,7 @@ class TestUserMessageParser(TelegramBotRequestsTestBase):
                 user_id=user_id,
                 username=username,
                 text=text,
+                message_edition=False,
                 first_name=first_name,
                 last_name=last_name,
                 message_type=MessageType.MESSAGE,
@@ -73,6 +74,42 @@ class TestUserMessageParser(TelegramBotRequestsTestBase):
                 user_id=user_id,
                 username=None,
                 text=text,
+                message_edition=False,
+                first_name=None,
+                last_name=None,
+                message_type=MessageType.MESSAGE,
+                chat_type=ChatType.PRIVATE,
+            ),
+        )
+
+    def test_parse_edited_message_in_private_chat(self):
+        chat_id = 1
+        user_id = 2
+        text = "test_text"
+
+        payload = deepcopy(self.edited_message_in_private_chat_request_payload)
+        payload["edited_message"]["chat"]["id"] = chat_id
+        payload["edited_message"]["from"]["id"] = user_id
+        payload["edited_message"]["text"] = text
+
+        del payload["edited_message"]["from"]["username"]
+        del payload["edited_message"]["from"]["first_name"]
+        del payload["edited_message"]["from"]["last_name"]
+
+        del payload["edited_message"]["chat"]["username"]
+        del payload["edited_message"]["chat"]["first_name"]
+        del payload["edited_message"]["chat"]["last_name"]
+
+        serialized_data = self._get_serialized_request_data(payload)
+        parsed_data = UserMessageParser.parse(serialized_data)
+        assert_that(
+            parsed_data,
+            has_attrs(
+                chat_id=chat_id,
+                user_id=user_id,
+                username=None,
+                text=text,
+                message_edition=True,
                 first_name=None,
                 last_name=None,
                 message_type=MessageType.MESSAGE,

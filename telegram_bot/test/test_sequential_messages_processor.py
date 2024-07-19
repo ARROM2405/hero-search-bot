@@ -105,9 +105,9 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
                 process_sequential_message()
                 hgetall_mock.assert_called_once()
                 hset_mock.assert_called_once_with(
-                    chat_id, mapping={"case_id": message_text}
+                    str(chat_id), mapping={"case_id": message_text}
                 )
-                expire_mock.assert_called_once_with(chat_id, 60 * 30)
+                expire_mock.assert_called_once_with(str(chat_id), 60 * 30)
 
         with self.subTest():
             with mock.patch(
@@ -121,7 +121,7 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
                 process_sequential_message()
                 hgetall_mock.assert_called_once()
                 hset_mock.assert_called_once_with(
-                    chat_id, mapping={"hero_last_name": message_text}
+                    str(chat_id), mapping={"hero_last_name": message_text}
                 )
                 expire_mock.assert_not_called()
 
@@ -140,7 +140,7 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
                 process_sequential_message()
                 hgetall_mock.assert_called_once()
                 hset_mock.assert_called_once_with(
-                    chat_id, mapping={"hero_first_name": message_text}
+                    str(chat_id), mapping={"hero_first_name": message_text}
                 )
                 expire_mock.assert_not_called()
 
@@ -160,7 +160,7 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
                 process_sequential_message()
                 hgetall_mock.assert_called_once()
                 hset_mock.assert_called_once_with(
-                    chat_id, mapping={"hero_patronymic": message_text}
+                    str(chat_id), mapping={"hero_patronymic": message_text}
                 )
                 expire_mock.assert_not_called()
 
@@ -181,7 +181,7 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
                 process_sequential_message()
                 hgetall_mock.assert_called_once()
                 hset_mock.assert_called_once_with(
-                    chat_id, mapping={"hero_date_of_birth": message_text}
+                    str(chat_id), mapping={"hero_date_of_birth": message_text}
                 )
                 expire_mock.assert_not_called()
 
@@ -203,7 +203,7 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
                 process_sequential_message()
                 hgetall_mock.assert_called_once()
                 hset_mock.assert_called_once_with(
-                    chat_id, mapping={"item_used_for_dna_extraction": message_text}
+                    str(chat_id), mapping={"item_used_for_dna_extraction": message_text}
                 )
                 expire_mock.assert_not_called()
 
@@ -226,7 +226,7 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
                 process_sequential_message()
                 hgetall_mock.assert_called_once()
                 hset_mock.assert_called_once_with(
-                    chat_id, mapping={"relative_last_name": message_text}
+                    str(chat_id), mapping={"relative_last_name": message_text}
                 )
                 expire_mock.assert_not_called()
 
@@ -250,7 +250,7 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
                 process_sequential_message()
                 hgetall_mock.assert_called_once()
                 hset_mock.assert_called_once_with(
-                    chat_id, mapping={"relative_first_name": message_text}
+                    str(chat_id), mapping={"relative_first_name": message_text}
                 )
                 expire_mock.assert_not_called()
 
@@ -275,7 +275,7 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
                 process_sequential_message()
                 hgetall_mock.assert_called_once()
                 hset_mock.assert_called_once_with(
-                    chat_id, mapping={"relative_patronymic": message_text}
+                    str(chat_id), mapping={"relative_patronymic": message_text}
                 )
                 expire_mock.assert_not_called()
 
@@ -301,7 +301,7 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
                 process_sequential_message()
                 hgetall_mock.assert_called_once()
                 hset_mock.assert_called_once_with(
-                    chat_id, mapping={"is_added_to_dna_db": message_text}
+                    str(chat_id), mapping={"is_added_to_dna_db": message_text}
                 )
                 expire_mock.assert_not_called()
 
@@ -328,7 +328,7 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
                 process_sequential_message()
                 hgetall_mock.assert_called_once()
                 hset_mock.assert_called_once_with(
-                    chat_id, mapping={"comment": message_text}
+                    str(chat_id), mapping={"comment": message_text}
                 )
                 expire_mock.assert_not_called()
 

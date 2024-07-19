@@ -10,6 +10,7 @@ class UserMessage:
     username: str
     user_id: int
     text: str
+    message_edition: bool
     chat_type: ChatType = None
     message_type: MessageType = None
     first_name: str = None

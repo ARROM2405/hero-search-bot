@@ -19,13 +19,18 @@ class UserMessageParser(BaseParser):
 
     @staticmethod
     def parse(telegram_message: dict) -> UserMessage:
-        message = telegram_message["message"]
+        if message := telegram_message.get("message"):
+            message_edition = False
+        else:
+            message = telegram_message["edited_message"]
+            message_edition = True
         chat = message.get("chat")
         return UserMessage(
             chat_id=chat.get("id") if chat else None,
             user_id=message["from"]["id"],
             username=message["from"].get("username"),
             text=message["text"],
+            message_edition=message_edition,
             first_name=message["from"].get("first_name"),
             last_name=message["from"].get("last_name"),
             message_type=MessageType.from_message_object_in_payload(message),

@@ -9,7 +9,11 @@ from unittest import mock
 
 from telegram_bot.constants import BASE_URL, MESSAGES_MAPPING
 from telegram_bot.enums import UserActionType, ChatType
-from telegram_bot.messages_texts import FIRST_INSTRUCTIONS, INPUT_CONFIRMED_RESPONSE
+from telegram_bot.messages_texts import (
+    FIRST_INSTRUCTIONS,
+    INPUT_CONFIRMED_RESPONSE,
+    EDITED_MESSAGE_RESPONSE,
+)
 from telegram_bot.models import TelegramUser, BotStatusChange
 from telegram_bot.test.base import TelegramBotRequestsTestBase
 
@@ -155,6 +159,55 @@ class TestTelegramBotApiViewSet(TelegramBotRequestsTestBase):
                 ]["id"],
                 "text": response_text,
                 "reply_markup": None,
+            },
+        )
+
+    @mock.patch(
+        "telegram_bot.message_handling_services.SequentialMessagesProcessor.check_if_user_input_exists"
+    )
+    @mock.patch(
+        "telegram_bot.message_handling_services.SequentialMessagesProcessor.get_response_text"
+    )
+    @mock.patch("telegram_bot.message_handling_services.requests.post")
+    def test_edited_message_to_the_private_chat(
+        self, mock_post, mock_get_response_text, mock_check_if_user_input_exists
+    ):
+        mock_check_if_user_input_exists.return_value = True
+        response_text = EDITED_MESSAGE_RESPONSE
+        mock_get_response_text.return_value = response_text
+        response = self.client.post(
+            self.url,
+            data=json.dumps(self.edited_message_in_private_chat_request_payload),
+            content_type="application/json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+        mock_post.assert_called_once_with(
+            url=BASE_URL + "sendMessage",
+            data={
+                "chat_id": self.edited_message_in_private_chat_request_payload[
+                    "edited_message"
+                ]["chat"]["id"],
+                "text": response_text,
+                "reply_markup": json.dumps(
+                    {
+                        "inline_keyboard": [
+                            [
+                                {
+                                    "text": "Почати вводити дані з початку.",
+                                    "callback_data": "/remove_and_restart_input",
+                                }
+                            ],
+                            [
+                                {
+                                    "text": "Продовжую як є.",
+                                    "callback_data": "/continue_input",
+                                }
+                            ],
+                        ],
+                    }
+                ),
             },
         )
 

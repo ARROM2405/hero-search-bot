@@ -11,6 +11,7 @@ from telegram_bot.test.requests_examples import (
     BOT_KICKED_FROM_THE_GROUP_1,
     COMMAND_AS_MESSAGE_IN_GROUP_CHAT,
     BOT_KICKED_FROM_THE_GROUP_2,
+    MESSAGE_EDITED,
 )
 
 
@@ -30,6 +31,7 @@ class TelegramBotRequestsTestBase(APITestCase):
             COMMAND_AS_CALLBACK_IN_PRIVATE_CHAT
         )
         self.message_in_private_chat_request_payload = MESSAGE_IN_PRIVATE_CHAT
+        self.edited_message_in_private_chat_request_payload = MESSAGE_EDITED
 
         # Group
         self.bot_added_to_the_group_request_payload = BOT_ADDED_TO_THE_GROUP

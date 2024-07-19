@@ -15,6 +15,7 @@ from telegram_bot.messages_texts import (
     INPUT_NOT_CONFIRMED_RESPONSE,
     INPUT_CONFIRMED_RESPONSE,
     ALL_DATA_RECEIVED_RESPONSE,
+    EDITED_MESSAGE_RESPONSE,
 )
 from telegram_bot.models import TelegramUser, BotStatusChange
 from telegram_bot.parsers import (
@@ -82,19 +83,18 @@ class UserMessageProcessor(TelegramMessageProcessorBase):
         )
 
     def process(self):
-        if "edited_message" in self.telegram_message:
-            return
         self.parsed_telegram_message = self.PARSER.parse(self.telegram_message)
         print("parsed_message", self.parsed_telegram_message)
         try:
             self._prepare_sequential_messages_processor()
-            self.sequential_messages_processor.save_message()
+            if not self.parsed_telegram_message.message_edition:
+                self.sequential_messages_processor.save_message()
         except AllDataReceivedException:
             self.all_data_received = True
 
-    def prepare_response(self) -> dict:
+    def prepare_response(self) -> dict | None:
         if "edited_message" in self.telegram_message:
-            return
+            return self._get_message_edition_response()
         reply_markup = None
         if not self.sequential_messages_processor and self.all_data_received:
             response_text = ALL_DATA_RECEIVED_RESPONSE
@@ -132,6 +132,33 @@ class UserMessageProcessor(TelegramMessageProcessorBase):
         payload = response_object.to_payload()
         return payload
 
+    def _get_message_edition_response(self):
+        if self.sequential_messages_processor.check_if_user_input_exists(
+            self.parsed_telegram_message.user_id
+        ):
+            response_object = ResponseMessage(
+                text=EDITED_MESSAGE_RESPONSE,
+                chat_id=self.parsed_telegram_message.chat_id,
+                reply_markup={
+                    "inline_keyboard": [
+                        [
+                            {
+                                "text": "Почати вводити дані з початку.",
+                                "callback_data": "/remove_and_restart_input",
+                            }
+                        ],
+                        [
+                            {
+                                "text": "Продовжую як є.",
+                                "callback_data": "/continue_input",
+                            }
+                        ],
+                    ],
+                },
+            )
+            payload = response_object.to_payload()
+            return payload
+
 
 class BotCommandProcessor(TelegramMessageProcessorBase):
     PARSER = TelegramCommandParser
@@ -163,6 +190,8 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
                 self._process_input_confirmed_command()
             case "/input_not_confirmed":
                 self._process_input_not_confirmed_command()
+            case "/remove_and_restart_input":
+                self._process_remove_and_restart_input_command()
             case _:
                 raise UnknownCommandException
 
@@ -188,6 +217,11 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
         )
 
     def _process_input_not_confirmed_command(self):
+        SequentialMessagesProcessor.remove_incorrect_input(
+            self.parsed_telegram_message.user_id
+        )
+
+    def _process_remove_and_restart_input_command(self):
         SequentialMessagesProcessor.remove_incorrect_input(
             self.parsed_telegram_message.user_id
         )
@@ -252,6 +286,9 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
         payload = response_object.to_payload()
         return payload
 
+    def _get_remove_and_restart_input_command_response(self):
+        return self._get_instructions_confirmed_command_response()
+
     def prepare_response(self) -> dict | None:
         if self.parsed_telegram_message.chat_type is not ChatType.GROUP:
             match self.parsed_telegram_message.data:
@@ -263,6 +300,8 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
                     return self._get_input_confirmed_command_response()
                 case "/input_not_confirmed":
                     return self._get_input_not_confirmed_command_response()
+                case "/remove_and_restart_input":
+                    return self._get_remove_and_restart_input_command_response()
                 case _:
                     raise UnknownCommandException
 

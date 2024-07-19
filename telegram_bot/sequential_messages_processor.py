@@ -24,7 +24,7 @@ class SequentialMessagesProcessor:
 
     def _get_current_and_next_message_keys(self) -> tuple[str, str | None]:
         ordered_message_keys = copy.copy(ORDER_OF_MESSAGES)
-        saved_messages = client.hgetall(
+        saved_messages = self.get_user_input(
             self.user_id
         )  # keys returned as a binary strings
         messages_not_provided_yet = [
@@ -42,8 +42,8 @@ class SequentialMessagesProcessor:
         raise AllDataReceivedException  # TODO: Probably other type of error should be used here
 
     def _create_new_redis_saved_data_set(self, mapping: dict[str, str]):
-        client.hset(self.user_id, mapping={**mapping})
-        client.expire(self.user_id, 60 * 30)
+        client.hset(str(self.user_id), mapping={**mapping})
+        client.expire(str(self.user_id), 60 * 30)
 
     def save_message(self):
         if self.current_message_key == ORDER_OF_MESSAGES[0]:
@@ -52,7 +52,7 @@ class SequentialMessagesProcessor:
             )
         else:
             client.hset(
-                self.user_id, mapping={self.current_message_key: self.message_data}
+                str(self.user_id), mapping={self.current_message_key: self.message_data}
             )
 
     def get_response_text(self) -> str:
@@ -61,7 +61,7 @@ class SequentialMessagesProcessor:
         raise AllDataReceivedException
 
     def get_completed_input_confirmation_text(self) -> str:
-        input_data = client.hgetall(name=self.user_id)
+        input_data = self.get_user_input(user_id=self.user_id)
         return f"""Будьласка підтвердіть чи всі введені дані коректні.
         Номер справи в реєстрі: {input_data["case_id".encode()].decode()}
         Прізвище героя: {input_data["hero_last_name".encode()].decode()}
@@ -78,11 +78,11 @@ class SequentialMessagesProcessor:
 
     @staticmethod
     def remove_incorrect_input(user_id: int):
-        client.delete(user_id)
+        client.delete(str(user_id))
 
     @staticmethod
     def save_confirmed_data(user_id: int, entry_author: TelegramUser) -> HeroData:
-        data = client.hgetall(user_id)
+        data = SequentialMessagesProcessor.get_user_input(user_id)
         print("saved_input:", end=" ")
         print(data)
         hero_data = HeroData.objects.create(
@@ -114,6 +114,16 @@ class SequentialMessagesProcessor:
         )
         client.delete(user_id)
         return hero_data
+
+    @staticmethod
+    def get_user_input(user_id: int) -> dict:
+        return client.hgetall(str(user_id))
+
+    @staticmethod
+    def check_if_user_input_exists(user_id: int) -> bool:
+        if SequentialMessagesProcessor.get_user_input(user_id):
+            return True
+        return False
 
     # TODO: WHAT IF CHAT EXPIRED BUT THE MESSAGE IS RECEIVED? PROCESS AS A START COMMAND BUT WITH ADDITIONAL
     #  EXPLANATIONS THAT THE CHAT IS EXPIRED
