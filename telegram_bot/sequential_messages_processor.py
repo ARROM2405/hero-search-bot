@@ -6,7 +6,11 @@ import redis
 from django.conf import settings
 from dotenv import load_dotenv
 
-from telegram_bot.constants import ORDER_OF_MESSAGES, MESSAGES_MAPPING
+from telegram_bot.constants import (
+    ORDER_OF_MESSAGES,
+    MESSAGES_MAPPING,
+    MESSAGE_TEXT_VALIDATION_FAILED,
+)
 from telegram_bot.exceptions import AllDataReceivedException
 from telegram_bot.models import HeroData, TelegramUser
 
@@ -21,6 +25,7 @@ class SequentialMessagesProcessor:
         self.current_message_key, self.next_message_key = (
             self._get_current_and_next_message_keys()
         )
+        self.message_validation_passed = self._validate_user_input(self.message_data)
 
     def _get_current_and_next_message_keys(self) -> tuple[str, str | None]:
         ordered_message_keys = copy.copy(ORDER_OF_MESSAGES)
@@ -46,16 +51,20 @@ class SequentialMessagesProcessor:
         client.expire(str(self.user_id), 60 * 30)
 
     def save_message(self):
-        if self.current_message_key == ORDER_OF_MESSAGES[0]:
-            self._create_new_redis_saved_data_set(
-                {self.current_message_key: self.message_data}
-            )
-        else:
-            client.hset(
-                str(self.user_id), mapping={self.current_message_key: self.message_data}
-            )
+        if self.message_validation_passed:
+            if self.current_message_key == ORDER_OF_MESSAGES[0]:
+                self._create_new_redis_saved_data_set(
+                    {self.current_message_key: self.message_data}
+                )
+            else:
+                client.hset(
+                    str(self.user_id),
+                    mapping={self.current_message_key: self.message_data},
+                )
 
     def get_response_text(self) -> str:
+        if self.message_validation_passed is False:
+            return f"{MESSAGE_TEXT_VALIDATION_FAILED}\n{MESSAGES_MAPPING[self.current_message_key]}"
         if self.next_message_key:
             return MESSAGES_MAPPING[self.next_message_key]
         raise AllDataReceivedException
@@ -124,6 +133,14 @@ class SequentialMessagesProcessor:
         if SequentialMessagesProcessor.get_user_input(user_id):
             return True
         return False
+
+    def _validate_user_input(self, value: str) -> bool:
+        if self.current_message_key == "hero_date_of_birth":
+            try:
+                datetime.strptime(value, "%d/%m/%Y")
+            except ValueError:
+                return False
+        return True
 
     # TODO: WHAT IF CHAT EXPIRED BUT THE MESSAGE IS RECEIVED? PROCESS AS A START COMMAND BUT WITH ADDITIONAL
     #  EXPLANATIONS THAT THE CHAT IS EXPIRED

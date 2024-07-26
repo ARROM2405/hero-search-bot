@@ -4,7 +4,12 @@ from unittest import mock
 
 from precisely import assert_that, has_attrs, is_mapping, is_sequence
 
-from telegram_bot.constants import ORDER_OF_MESSAGES, MESSAGES_MAPPING, BASE_URL
+from telegram_bot.constants import (
+    ORDER_OF_MESSAGES,
+    MESSAGES_MAPPING,
+    BASE_URL,
+    MESSAGE_TEXT_VALIDATION_FAILED,
+)
 from telegram_bot.enums import ChatType, UserActionType
 from telegram_bot.exceptions import (
     TelegramMessageNotParsedException,
@@ -415,6 +420,38 @@ class TestUserMessageProcessor(TelegramBotRequestsTestBase):
         payload = copy.deepcopy(self.message_in_private_chat_request_payload)
         del payload["message"]["from"]["first_name"]
         del payload["message"]["from"]["last_name"]
+
+        with self.subTest():
+            # message_validation_failed
+            with mock.patch(
+                "telegram_bot.sequential_messages_processor.redis.Redis.hgetall",
+            ) as hgetall_mock, mock.patch(
+                "telegram_bot.sequential_messages_processor.redis.Redis.hset"
+            ) as hset_mock, mock.patch(
+                "telegram_bot.sequential_messages_processor.redis.Redis.expire"
+            ) as expire_mock:
+                hgetall_mock.return_value = {
+                    b"case_id": "123123",
+                    b"hero_last_name": "AAA",
+                    b"hero_first_name": "BBB",
+                    b"hero_patronymic": "CCC",
+                }
+                payload["message"]["text"] = "1.2.2000"
+                serialized_request_data = self._get_serialized_request_data(payload)
+                processor = UserMessageProcessor(serialized_request_data)
+                processor.process()
+                response_object = processor.prepare_response()
+                assert_that(
+                    response_object,
+                    is_mapping(
+                        {
+                            "text": f"{MESSAGE_TEXT_VALIDATION_FAILED}\n{MESSAGES_MAPPING['hero_date_of_birth']}",
+                            "chat_id": chat_id,
+                            "reply_markup": None,
+                        }
+                    ),
+                )
+                hset_mock.assert_not_called()
 
         with self.subTest():
             with mock.patch(
@@ -1059,7 +1096,7 @@ class TestBotCommandProcessor(TelegramBotRequestsTestBase):
         parsed_message = TelegramCommandParser.parse(payload)
         processor = BotCommandProcessor(serialized_data)
         processor.parsed_telegram_message = parsed_message
-        assert processor.process() is None
+        assert processor._process_continue_input_command() is None
 
     @mock.patch(
         "telegram_bot.message_handling_services.BotCommandProcessor._remove_inline_keyboard_from_replied_message"
@@ -1510,10 +1547,14 @@ class TestBotCommandProcessor(TelegramBotRequestsTestBase):
         mock_get_response.assert_not_called()
 
     # command: /continue_input
+    @mock.patch("telegram_bot.sequential_messages_processor.client")
     @mock.patch(
         "telegram_bot.message_handling_services.SequentialMessagesProcessor.get_response_text"
     )
-    def test_get_continue_input_command_response(self, mock_get_response_text):
+    def test_get_continue_input_command_response(
+        self, mock_get_response_text, redis_mock
+    ):
+        redis_mock.hgetall.return_value = {b"case_id": "1"}
         mock_get_response_text.return_value = MESSAGES_MAPPING["hero_last_name"]
         payload = copy.deepcopy(self.command_as_message_in_private_chat_request_payload)
         payload["message"]["text"] = "/continue_input"

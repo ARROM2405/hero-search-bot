@@ -37,7 +37,7 @@ class TelegramMessageProcessorBase(ABC):
     def process(self): ...
 
     @abstractmethod
-    def prepare_response(self) -> ResponseMessage: ...
+    def prepare_response(self) -> dict | None: ...
 
 
 class MemberStatusChangeProcessor(TelegramMessageProcessorBase):
@@ -62,7 +62,7 @@ class MemberStatusChangeProcessor(TelegramMessageProcessorBase):
         self.parsed_telegram_message = self.PARSER.parse(self.telegram_message)
         self._save_bot_status_change()
 
-    def prepare_response(self) -> dict:
+    def prepare_response(self):
         pass
 
 

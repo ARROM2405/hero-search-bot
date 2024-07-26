@@ -89,8 +89,14 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
         chat_id = self.message_in_private_chat_request_payload["message"]["chat"]["id"]
         message_text = self.message_in_private_chat_request_payload["message"]["text"]
 
-        def process_sequential_message():
-            processor = SequentialMessagesProcessor(message_text, chat_id)
+        def process_sequential_message(
+            message_text_param: str = None,
+            chat_id_param: int = None,
+        ):
+            processor = SequentialMessagesProcessor(
+                message_text_param or message_text,
+                chat_id_param or chat_id,
+            )
             processor.save_message()
 
         with self.subTest():
@@ -165,6 +171,30 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
                 expire_mock.assert_not_called()
 
         with self.subTest():
+            # date validation passed
+            with mock.patch(
+                "telegram_bot.sequential_messages_processor.redis.Redis.hgetall",
+            ) as hgetall_mock, mock.patch(
+                "telegram_bot.sequential_messages_processor.redis.Redis.hset"
+            ) as hset_mock, mock.patch(
+                "telegram_bot.sequential_messages_processor.redis.Redis.expire"
+            ) as expire_mock:
+                hgetall_mock.return_value = {
+                    "case_id".encode(): None,
+                    "hero_last_name".encode(): None,
+                    "hero_first_name".encode(): None,
+                    "hero_patronymic".encode(): None,
+                }
+                date_message_input = "01/01/2000"
+                process_sequential_message(message_text_param=date_message_input)
+                hgetall_mock.assert_called_once()
+                hset_mock.assert_called_once_with(
+                    str(chat_id), mapping={"hero_date_of_birth": date_message_input}
+                )
+                expire_mock.assert_not_called()
+
+        with self.subTest():
+            # date validation not passed
             with mock.patch(
                 "telegram_bot.sequential_messages_processor.redis.Redis.hgetall",
             ) as hgetall_mock, mock.patch(
@@ -180,9 +210,7 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
                 }
                 process_sequential_message()
                 hgetall_mock.assert_called_once()
-                hset_mock.assert_called_once_with(
-                    str(chat_id), mapping={"hero_date_of_birth": message_text}
-                )
+                hset_mock.assert_not_called()
                 expire_mock.assert_not_called()
 
         with self.subTest():
@@ -358,3 +386,30 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
                     hgetall_mock.assert_called_once()
                     hset_mock.assert_not_called()
                     expire_mock.assert_not_called()
+
+    @mock.patch("telegram_bot.sequential_messages_processor.client")
+    def test_validate_input(self, redis_mock):
+        with self.subTest():
+            redis_mock.hgetall.return_value = {}
+            message_data = "some_message_data"
+            chat_id = "123123"
+            processor = SequentialMessagesProcessor(
+                message_data=message_data,
+                user_id=int(chat_id),
+            )
+            assert processor.message_validation_passed is True
+
+        with self.subTest():
+            redis_mock.hgetall.return_value = {
+                b"case_id": "123123",
+                b"hero_last_name": "AAA",
+                b"hero_first_name": "BBB",
+                b"hero_patronymic": "CCC",
+            }
+            message_data = "1-1-2022"
+            chat_id = "123123"
+            processor = SequentialMessagesProcessor(
+                message_data=message_data,
+                user_id=int(chat_id),
+            )
+            assert processor.message_validation_passed is False
