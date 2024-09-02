@@ -1,8 +1,10 @@
+import datetime
 from abc import ABC, abstractmethod
 
 import requests
+from django.conf import settings
 
-from telegram_bot.constants import BASE_URL, MESSAGES_MAPPING
+from telegram_bot.constants import BASE_URL, MESSAGES_MAPPING, DATE_FORMAT
 from telegram_bot.dataclasses import ResponseMessage
 from telegram_bot.enums import UserActionType, ChatType
 from telegram_bot.exceptions import (
@@ -23,6 +25,7 @@ from telegram_bot.parsers import (
     UserMessageParser,
     TelegramCommandParser,
 )
+from telegram_bot.report_generator import ReportGenerator
 from telegram_bot.sequential_messages_processor import SequentialMessagesProcessor
 
 
@@ -194,6 +197,8 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
                 self._process_remove_and_restart_input_command()
             case "/continue_input":
                 self._process_continue_input_command()
+            case command if command.startswith("/report_"):
+                self._process_report_generation_command()
             case _:
                 raise UnknownCommandException
 
@@ -230,6 +235,16 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
 
     def _process_continue_input_command(self):
         pass
+
+    def _process_report_generation_command(self):
+        if settings.ADMIN_USER_IDS:
+            if self.parsed_telegram_message.chat_id not in settings.ADMIN_USER_IDS:
+                return
+        report_dates = self.parsed_telegram_message.data.split("_")[1:]
+        self.generated_report = ReportGenerator(
+            start_date=datetime.datetime.strptime(report_dates[0], DATE_FORMAT),
+            end_date=datetime.datetime.strptime(report_dates[1], DATE_FORMAT),
+        )
 
     def _get_start_command_response(self) -> dict:  # TODO: change typing to typed dict?
         response_text = FIRST_INSTRUCTIONS
@@ -305,6 +320,15 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
         )
         return response_object.to_payload()
 
+    def _get_report_generation_command_response(self):
+        with open(self.generated_report, "rb") as file:
+            files = {"document": file}
+
+        response_object = ResponseMessage(
+            chat_id=self.parsed_telegram_message.chat_id,
+        )
+        # TODO: finish with adding file. Probably update ResponseMessage object to keep data and document keys
+
     def prepare_response(self) -> dict | None:
         if self.parsed_telegram_message.chat_type is not ChatType.GROUP:
             match self.parsed_telegram_message.data:
@@ -320,6 +344,8 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
                     return self._get_remove_and_restart_input_command_response()
                 case "/continue_input":
                     return self._get_continue_input_command_response()
+                case command if command.startswith("/report_"):
+                    return self._get_report_generation_command_response()
                 case _:
                     raise UnknownCommandException
 
@@ -350,6 +376,8 @@ class MessageHandler:
         return BASE_URL + "sendMessage"
 
     def _send_response(self, response: dict):
+        # TODO: update to include files as a separate parameter to the response call - 'document'
+
         url = self._get_response_url()
         print(url)
         print(response)

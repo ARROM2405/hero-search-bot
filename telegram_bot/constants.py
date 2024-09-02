@@ -43,3 +43,6 @@ MESSAGES_MAPPING: Final = {
 MESSAGE_TEXT_VALIDATION_FAILED: Final = (
     "Дані в попередньому повідомленні мають неправельний формат. Спробуйте ще раз."
 )
+
+
+DATE_FORMAT: Final = "%d-%m-%Y"
