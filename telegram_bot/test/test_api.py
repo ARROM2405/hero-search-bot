@@ -1,3 +1,4 @@
+import copy
 import json
 
 from copy import deepcopy
@@ -158,7 +159,6 @@ class TestTelegramBotApiViewSet(TelegramBotRequestsTestBase):
                     "chat"
                 ]["id"],
                 "text": response_text,
-                "reply_markup": None,
             },
         )
 
@@ -259,7 +259,6 @@ class TestTelegramBotApiViewSet(TelegramBotRequestsTestBase):
                         {
                             "chat_id": user_data["id"],
                             "text": INPUT_CONFIRMED_RESPONSE,
-                            "reply_markup": None,
                         }
                     ),
                 }
@@ -413,3 +412,15 @@ class TestTelegramBotApiViewSet(TelegramBotRequestsTestBase):
         ),
 
         mock_post.assert_not_called()
+
+    @mock.patch("telegram_bot.message_handling_services.requests.post")
+    def test_unknown_command_returns_200(self, mock_post):
+        payload = copy.deepcopy(self.command_as_message_in_group_request_payload)
+        payload["message"]["text"] = "/unknown_command"
+        response = self.client.post(
+            self.url,
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK

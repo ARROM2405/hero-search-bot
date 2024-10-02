@@ -46,11 +46,14 @@ class ResponseMessage:
     text: str
     chat_id: int
     reply_markup: dict | None = None
+    file_path: str = None
 
     def to_payload(self) -> dict:
-        payload = asdict(self)
+        payload = {"data": {"text": self.text, "chat_id": self.chat_id}}
         if self.reply_markup:
-            payload["reply_markup"] = json.dumps(self.reply_markup)
+            payload["data"]["reply_markup"] = json.dumps(self.reply_markup)
+        if self.file_path:
+            payload["files"] = {"document": open(self.file_path, "rb")}
         return payload
 
 

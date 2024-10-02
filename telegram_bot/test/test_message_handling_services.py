@@ -1,5 +1,6 @@
 import copy
 import json
+import os
 from unittest import mock
 
 from precisely import assert_that, has_attrs, is_mapping, is_sequence
@@ -151,7 +152,7 @@ class TestMessageHandler(TelegramBotRequestsTestBase):
         post_request_mock.assert_called_once()
         mock_called_with_kwargs = post_request_mock.call_args_list[0].kwargs["data"]
         assert mock_called_with_kwargs["text"] == response_text
-        assert mock_called_with_kwargs["reply_markup"] is None
+        assert "reply_markup" not in mock_called_with_kwargs
 
 
 class TestMemberStatusChangeProcessor(TelegramBotRequestsTestBase):
@@ -445,9 +446,12 @@ class TestUserMessageProcessor(TelegramBotRequestsTestBase):
                     response_object,
                     is_mapping(
                         {
-                            "text": f"{MESSAGE_TEXT_VALIDATION_FAILED}\n{MESSAGES_MAPPING['hero_date_of_birth']}",
-                            "chat_id": chat_id,
-                            "reply_markup": None,
+                            "data": is_mapping(
+                                {
+                                    "text": f"{MESSAGE_TEXT_VALIDATION_FAILED}\n{MESSAGES_MAPPING['hero_date_of_birth']}",
+                                    "chat_id": chat_id,
+                                }
+                            )
                         }
                     ),
                 )
@@ -470,9 +474,12 @@ class TestUserMessageProcessor(TelegramBotRequestsTestBase):
                     response_object,
                     is_mapping(
                         {
-                            "text": MESSAGES_MAPPING["hero_last_name"],
-                            "chat_id": chat_id,
-                            "reply_markup": None,
+                            "data": is_mapping(
+                                {
+                                    "text": MESSAGES_MAPPING["hero_last_name"],
+                                    "chat_id": chat_id,
+                                }
+                            )
                         }
                     ),
                 )
@@ -497,9 +504,12 @@ class TestUserMessageProcessor(TelegramBotRequestsTestBase):
                     response_object,
                     is_mapping(
                         {
-                            "text": MESSAGES_MAPPING["hero_patronymic"],
-                            "chat_id": chat_id,
-                            "reply_markup": None,
+                            "data": is_mapping(
+                                {
+                                    "text": MESSAGES_MAPPING["hero_patronymic"],
+                                    "chat_id": chat_id,
+                                }
+                            )
                         }
                     ),
                 )
@@ -547,7 +557,9 @@ class TestUserMessageProcessor(TelegramBotRequestsTestBase):
                     response_object,
                     is_mapping(
                         {
-                            "text": f"""Будьласка підтвердіть чи всі введені дані коректні.
+                            "data": is_mapping(
+                                {
+                                    "text": f"""Будьласка підтвердіть чи всі введені дані коректні.
         Номер справи в реєстрі: some_case_id
         Прізвище героя: some_hero_last_name
         Ім'я героя: some_hero_first_name
@@ -560,25 +572,27 @@ class TestUserMessageProcessor(TelegramBotRequestsTestBase):
         Дані є в реєстрі ДНК: some_is_added_to_dna_db
         Коментар: some_comment
         """,
-                            "chat_id": chat_id,
-                            "reply_markup": json.dumps(
-                                {
-                                    "inline_keyboard": [
-                                        [
-                                            {
-                                                "text": "Дані корректні.",
-                                                "callback_data": "/input_confirmed",
-                                            }
-                                        ],
-                                        [
-                                            {
-                                                "text": "Дані не корректні. Маю відредагувати.",
-                                                "callback_data": "/input_not_confirmed",
-                                            }
-                                        ],
-                                    ],
+                                    "chat_id": chat_id,
+                                    "reply_markup": json.dumps(
+                                        {
+                                            "inline_keyboard": [
+                                                [
+                                                    {
+                                                        "text": "Дані корректні.",
+                                                        "callback_data": "/input_confirmed",
+                                                    }
+                                                ],
+                                                [
+                                                    {
+                                                        "text": "Дані не корректні. Маю відредагувати.",
+                                                        "callback_data": "/input_not_confirmed",
+                                                    }
+                                                ],
+                                            ],
+                                        }
+                                    ),
                                 }
-                            ),
+                            )
                         }
                     ),
                 )
@@ -612,9 +626,12 @@ class TestUserMessageProcessor(TelegramBotRequestsTestBase):
                     response_object,
                     is_mapping(
                         {
-                            "text": ALL_DATA_RECEIVED_RESPONSE,
-                            "chat_id": chat_id,
-                            "reply_markup": None,
+                            "data": is_mapping(
+                                {
+                                    "text": ALL_DATA_RECEIVED_RESPONSE,
+                                    "chat_id": chat_id,
+                                }
+                            )
                         }
                     ),
                 )
@@ -633,32 +650,36 @@ class TestUserMessageProcessor(TelegramBotRequestsTestBase):
                     response_object,
                     is_mapping(
                         {
-                            "chat_id": self.edited_message_in_private_chat_request_payload[
-                                "edited_message"
-                            ][
-                                "chat"
-                            ][
-                                "id"
-                            ],
-                            "text": EDITED_MESSAGE_RESPONSE,
-                            "reply_markup": json.dumps(
+                            "data": is_mapping(
                                 {
-                                    "inline_keyboard": [
-                                        [
-                                            {
-                                                "text": "Почати вводити дані з початку.",
-                                                "callback_data": "/remove_and_restart_input",
-                                            }
-                                        ],
-                                        [
-                                            {
-                                                "text": "Продовжую як є.",
-                                                "callback_data": "/continue_input",
-                                            }
-                                        ],
+                                    "chat_id": self.edited_message_in_private_chat_request_payload[
+                                        "edited_message"
+                                    ][
+                                        "chat"
+                                    ][
+                                        "id"
                                     ],
+                                    "text": EDITED_MESSAGE_RESPONSE,
+                                    "reply_markup": json.dumps(
+                                        {
+                                            "inline_keyboard": [
+                                                [
+                                                    {
+                                                        "text": "Почати вводити дані з початку.",
+                                                        "callback_data": "/remove_and_restart_input",
+                                                    }
+                                                ],
+                                                [
+                                                    {
+                                                        "text": "Продовжую як є.",
+                                                        "callback_data": "/continue_input",
+                                                    }
+                                                ],
+                                            ],
+                                        }
+                                    ),
                                 }
-                            ),
+                            )
                         }
                     ),
                 )
@@ -1157,6 +1178,66 @@ class TestBotCommandProcessor(TelegramBotRequestsTestBase):
         mock_process_command.assert_called_once()
         mock_remove_inline_keyboard.assert_not_called()
 
+    # command: /report_
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._remove_inline_keyboard_from_replied_message"
+    )
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._process_report_generation_command"
+    )
+    def test_process_report_command_in_the_private_chat_as_a_message(
+        self,
+        mock_process_command,
+        mock_remove_inline_keyboard,
+    ):
+        payload = copy.deepcopy(self.command_as_message_in_private_chat_request_payload)
+        payload["message"]["text"] = "/report_01-01-2024_02-01-2024"
+        serialized_data = self._get_serialized_request_data(payload)
+        processor = BotCommandProcessor(serialized_data)
+        processor.process()
+        mock_process_command.assert_called_once()
+        mock_remove_inline_keyboard.assert_not_called()
+
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._remove_inline_keyboard_from_replied_message"
+    )
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._process_report_generation_command"
+    )
+    def test_process_report_command_as_a_callback_in_the_private_chat(
+        self,
+        mock_process_command,
+        mock_remove_inline_keyboard,
+    ):
+        payload = copy.deepcopy(
+            self.command_as_callback_in_private_chat_request_payload
+        )
+        payload["callback_query"]["data"] = "/report_01-01-2024_02-01-2024"
+        serialized_data = self._get_serialized_request_data(payload)
+        processor = BotCommandProcessor(serialized_data)
+        processor.process()
+        mock_process_command.assert_called_once()
+        mock_remove_inline_keyboard.assert_called_once()
+
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._remove_inline_keyboard_from_replied_message"
+    )
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._process_report_generation_command"
+    )
+    def test_process_report_command_as_message_in_the_group(
+        self,
+        mock_process_command,
+        mock_remove_inline_keyboard,
+    ):
+        payload = copy.deepcopy(self.command_as_message_in_group_request_payload)
+        payload["message"]["text"] = "/report_01-01-2024_02-01-2024"
+        serialized_data = self._get_serialized_request_data(payload)
+        processor = BotCommandProcessor(serialized_data)
+        processor.process()
+        mock_process_command.assert_called_once()
+        mock_remove_inline_keyboard.assert_not_called()
+
     # command: /unknown
     def test_process_unknown_command_in_the_private_chat_as_a_message(self):
         with self.assertRaises(UnknownCommandException):
@@ -1202,20 +1283,24 @@ class TestBotCommandProcessor(TelegramBotRequestsTestBase):
             response,
             is_mapping(
                 {
-                    "text": FIRST_INSTRUCTIONS,
-                    "chat_id": payload["message"]["chat"]["id"],
-                    "reply_markup": json.dumps(
+                    "data": is_mapping(
                         {
-                            "inline_keyboard": [
-                                [
-                                    {
-                                        "text": "Зрозуміло, починаємо",
-                                        "callback_data": "/instructions_confirmed",
-                                    }
-                                ]
-                            ],
+                            "text": FIRST_INSTRUCTIONS,
+                            "chat_id": payload["message"]["chat"]["id"],
+                            "reply_markup": json.dumps(
+                                {
+                                    "inline_keyboard": [
+                                        [
+                                            {
+                                                "text": "Зрозуміло, починаємо",
+                                                "callback_data": "/instructions_confirmed",
+                                            }
+                                        ]
+                                    ],
+                                }
+                            ),
                         }
-                    ),
+                    )
                 }
             ),
         )
@@ -1280,9 +1365,12 @@ class TestBotCommandProcessor(TelegramBotRequestsTestBase):
             response,
             is_mapping(
                 {
-                    "text": INQUERY_MESSAGE_START + CASE_ID_INQUERY,
-                    "chat_id": payload["message"]["chat"]["id"],
-                    "reply_markup": None,
+                    "data": is_mapping(
+                        {
+                            "text": INQUERY_MESSAGE_START + CASE_ID_INQUERY,
+                            "chat_id": payload["message"]["chat"]["id"],
+                        }
+                    )
                 }
             ),
         )
@@ -1347,9 +1435,12 @@ class TestBotCommandProcessor(TelegramBotRequestsTestBase):
             response,
             is_mapping(
                 {
-                    "text": INPUT_CONFIRMED_RESPONSE,
-                    "chat_id": payload["message"]["chat"]["id"],
-                    "reply_markup": None,
+                    "data": is_mapping(
+                        {
+                            "text": INPUT_CONFIRMED_RESPONSE,
+                            "chat_id": payload["message"]["chat"]["id"],
+                        }
+                    )
                 }
             ),
         )
@@ -1414,20 +1505,24 @@ class TestBotCommandProcessor(TelegramBotRequestsTestBase):
             response,
             is_mapping(
                 {
-                    "text": INPUT_NOT_CONFIRMED_RESPONSE,
-                    "chat_id": payload["message"]["chat"]["id"],
-                    "reply_markup": json.dumps(
+                    "data": is_mapping(
                         {
-                            "inline_keyboard": [
-                                [
-                                    {
-                                        "text": "Зрозуміло, починаємо",
-                                        "callback_data": "/instructions_confirmed",
-                                    }
-                                ]
-                            ],
+                            "text": INPUT_NOT_CONFIRMED_RESPONSE,
+                            "chat_id": payload["message"]["chat"]["id"],
+                            "reply_markup": json.dumps(
+                                {
+                                    "inline_keyboard": [
+                                        [
+                                            {
+                                                "text": "Зрозуміло, починаємо",
+                                                "callback_data": "/instructions_confirmed",
+                                            }
+                                        ]
+                                    ],
+                                }
+                            ),
                         }
-                    ),
+                    )
                 }
             ),
         )
@@ -1492,9 +1587,12 @@ class TestBotCommandProcessor(TelegramBotRequestsTestBase):
             response,
             is_mapping(
                 {
-                    "text": INQUERY_MESSAGE_START + CASE_ID_INQUERY,
-                    "chat_id": payload["message"]["chat"]["id"],
-                    "reply_markup": None,
+                    "data": is_mapping(
+                        {
+                            "text": INQUERY_MESSAGE_START + CASE_ID_INQUERY,
+                            "chat_id": payload["message"]["chat"]["id"],
+                        }
+                    )
                 }
             ),
         )
@@ -1567,9 +1665,12 @@ class TestBotCommandProcessor(TelegramBotRequestsTestBase):
             response,
             is_mapping(
                 {
-                    "text": MESSAGES_MAPPING["hero_last_name"],
-                    "chat_id": payload["message"]["chat"]["id"],
-                    "reply_markup": None,
+                    "data": is_mapping(
+                        {
+                            "text": MESSAGES_MAPPING["hero_last_name"],
+                            "chat_id": payload["message"]["chat"]["id"],
+                        }
+                    )
                 }
             ),
         )
@@ -1655,3 +1756,82 @@ class TestBotCommandProcessor(TelegramBotRequestsTestBase):
         processor.parsed_telegram_message = parsed_message
         response = processor.prepare_response()
         assert response is None
+
+    # command: /report_
+    def test_get_report_command_response(self):
+        payload = copy.deepcopy(self.command_as_message_in_private_chat_request_payload)
+        payload["message"]["text"] = "/report_01-02-2024_04-02-2024"
+        serialized_data = self._get_serialized_request_data(payload)
+        parsed_message = TelegramCommandParser.parse(serialized_data)
+        processor = BotCommandProcessor(serialized_data)
+        processor.parsed_telegram_message = parsed_message
+        processor._process_report_generation_command()
+        response = processor._get_report_generation_command_response()
+        try:
+            assert_that(
+                response,
+                is_mapping(
+                    {
+                        "data": is_mapping(
+                            {
+                                "text": "",
+                                "chat_id": payload["message"]["chat"]["id"],
+                            }
+                        ),
+                        "files": is_mapping(
+                            {"document": has_attrs(name=processor.generated_report)}
+                        ),
+                    }
+                ),
+            )
+        except Exception:
+            raise
+        finally:
+            os.remove(processor.generated_report)
+
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._get_report_generation_command_response"
+    )
+    def test_prepare_response_report_command_in_the_private_chat_as_a_message(
+        self, mock_get_response
+    ):
+        payload = copy.deepcopy(self.command_as_message_in_private_chat_request_payload)
+        payload["message"]["text"] = "/report_01-02-2024_02-03-2024"
+        serialized_data = self._get_serialized_request_data(payload)
+        parsed_message = TelegramCommandParser.parse(serialized_data)
+        processor = BotCommandProcessor(serialized_data)
+        processor.parsed_telegram_message = parsed_message
+        processor.prepare_response()
+        mock_get_response.assert_called_once()
+
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._get_report_generation_command_response"
+    )
+    def test_prepare_response_report_command_as_a_callback_in_the_private_chat(
+        self, mock_get_response
+    ):
+        payload = copy.deepcopy(
+            self.command_as_callback_in_private_chat_request_payload
+        )
+        payload["callback_query"]["data"] = "/report_01-02-2024_02-03-2024"
+        serialized_data = self._get_serialized_request_data(payload)
+        parsed_message = TelegramCommandParser.parse(serialized_data)
+        processor = BotCommandProcessor(serialized_data)
+        processor.parsed_telegram_message = parsed_message
+        processor.prepare_response()
+        mock_get_response.assert_called_once()
+
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._get_report_generation_command_response"
+    )
+    def test_prepare_response_report_command_as_message_in_the_group(
+        self, mock_get_response
+    ):
+        payload = copy.deepcopy(self.command_as_message_in_group_request_payload)
+        payload["message"]["text"] = "/report_01-02-2024_02-03-2024"
+        serialized_data = self._get_serialized_request_data(payload)
+        parsed_message = TelegramCommandParser.parse(serialized_data)
+        processor = BotCommandProcessor(serialized_data)
+        processor.parsed_telegram_message = parsed_message
+        processor.prepare_response()
+        mock_get_response.assert_not_called()

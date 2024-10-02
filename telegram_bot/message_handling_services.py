@@ -1,4 +1,5 @@
 import datetime
+import os
 from abc import ABC, abstractmethod
 
 import requests
@@ -6,7 +7,7 @@ from django.conf import settings
 
 from telegram_bot.constants import BASE_URL, MESSAGES_MAPPING, DATE_FORMAT
 from telegram_bot.dataclasses import ResponseMessage
-from telegram_bot.enums import UserActionType, ChatType
+from telegram_bot.enums import ChatType
 from telegram_bot.exceptions import (
     TelegramMessageNotParsedException,
     AllDataReceivedException,
@@ -42,6 +43,9 @@ class TelegramMessageProcessorBase(ABC):
     @abstractmethod
     def prepare_response(self) -> dict | None: ...
 
+    @abstractmethod
+    def finalize(self): ...
+
 
 class MemberStatusChangeProcessor(TelegramMessageProcessorBase):
     PARSER = ChatStatusChangeMessageParser
@@ -66,6 +70,9 @@ class MemberStatusChangeProcessor(TelegramMessageProcessorBase):
         self._save_bot_status_change()
 
     def prepare_response(self):
+        pass
+
+    def finalize(self):
         pass
 
 
@@ -162,6 +169,9 @@ class UserMessageProcessor(TelegramMessageProcessorBase):
             payload = response_object.to_payload()
             return payload
 
+    def finalize(self):
+        pass
+
 
 class BotCommandProcessor(TelegramMessageProcessorBase):
     PARSER = TelegramCommandParser
@@ -237,6 +247,7 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
         pass
 
     def _process_report_generation_command(self):
+        # TODO: check if this method is tested
         if settings.ADMIN_USER_IDS:
             if self.parsed_telegram_message.chat_id not in settings.ADMIN_USER_IDS:
                 return
@@ -244,7 +255,7 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
         self.generated_report = ReportGenerator(
             start_date=datetime.datetime.strptime(report_dates[0], DATE_FORMAT),
             end_date=datetime.datetime.strptime(report_dates[1], DATE_FORMAT),
-        )
+        ).generate_report()
 
     def _get_start_command_response(self) -> dict:  # TODO: change typing to typed dict?
         response_text = FIRST_INSTRUCTIONS
@@ -320,14 +331,12 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
         )
         return response_object.to_payload()
 
-    def _get_report_generation_command_response(self):
-        with open(self.generated_report, "rb") as file:
-            files = {"document": file}
-
-        response_object = ResponseMessage(
+    def _get_report_generation_command_response(self) -> dict:
+        return ResponseMessage(
             chat_id=self.parsed_telegram_message.chat_id,
-        )
-        # TODO: finish with adding file. Probably update ResponseMessage object to keep data and document keys
+            text="",
+            file_path=self.generated_report,
+        ).to_payload()
 
     def prepare_response(self) -> dict | None:
         if self.parsed_telegram_message.chat_type is not ChatType.GROUP:
@@ -348,6 +357,10 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
                     return self._get_report_generation_command_response()
                 case _:
                     raise UnknownCommandException
+
+    def finalize(self):
+        if hasattr(self, "generated_report"):
+            os.remove(self.generated_report)
 
 
 class MessageHandler:
@@ -372,21 +385,27 @@ class MessageHandler:
         raise NotImplementedError
 
     @staticmethod
-    def _get_response_url() -> str:
+    def _get_response_url(response: dict) -> str:
+        if "files" in response:
+            return BASE_URL + "sendDocument"
         return BASE_URL + "sendMessage"
 
     def _send_response(self, response: dict):
-        # TODO: update to include files as a separate parameter to the response call - 'document'
-
-        url = self._get_response_url()
+        url = self._get_response_url(response)
         print(url)
         print(response)
-        response_call = requests.post(url=url, data=response)
+        response_call = requests.post(url=url, **response)
         print(response_call.status_code, response_call.text)
 
     def handle_telegram_message(self):
         processor = self._get_message_processor()
-        processor.process()
-        response = processor.prepare_response()
-        if response:
-            self._send_response(response)
+        try:
+            processor.process()
+            response = processor.prepare_response()
+            if response:
+                self._send_response(response)
+        except Exception:
+            # TODO: add logging
+            pass
+        finally:
+            processor.finalize()

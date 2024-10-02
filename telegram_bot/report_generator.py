@@ -1,5 +1,7 @@
 import datetime
+import os.path
 
+from django.conf import settings
 from django.db.models import QuerySet
 
 from telegram_bot.constants import DATE_FORMAT
@@ -25,12 +27,15 @@ class ReportGenerator:
         )
 
     def _get_file_name(self) -> str:
-        return f"{self.start_date.strftime(DATE_FORMAT)}_{self.end_date.strftime(DATE_FORMAT)}.csv"
+        file_name = f"{self.start_date.strftime(DATE_FORMAT)}_{self.end_date.strftime(DATE_FORMAT)}.csv"
+        file_path = os.path.join(settings.BASE_DIR, file_name)
+        return file_path
 
-    def _convert_hero_data_to_row(self, hero_data: HeroData) -> str:
+    @staticmethod
+    def _convert_hero_data_to_row(hero_data: HeroData) -> str:
         hero_full_name = f"{hero_data.hero_last_name} {hero_data.hero_first_name} {hero_data.hero_patronymic}"
         hero_date_of_birth = hero_data.hero_date_of_birth.strftime(DATE_FORMAT)
-        relative_full_name = f"{hero_data.relative_last_name} {hero_data.hero_first_name} {hero_data.hero_patronymic}"
+        relative_full_name = f"{hero_data.relative_last_name} {hero_data.relative_first_name} {hero_data.relative_patronymic}"
         if hero_data.is_added_to_dna_db:
             is_added_to_dna_db = "Так"
         else:
@@ -41,10 +46,10 @@ class ReportGenerator:
                 hero_data.case_id,
                 hero_full_name,
                 hero_date_of_birth,
-                hero_data.item_used_for_dna_extraction,
+                hero_data.item_used_for_dna_extraction or "",
                 is_added_to_dna_db,
                 relative_full_name,
-                hero_data.comment,
+                hero_data.comment or "",
                 created_at_date,
             ]
         )
@@ -58,5 +63,4 @@ class ReportGenerator:
             for hero_data in self._get_filtered_queryset():
                 data_as_row = self._convert_hero_data_to_row(hero_data)
                 report_file.write(data_as_row)
-
-        return report_file
+        return file_name
