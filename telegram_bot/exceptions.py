@@ -19,3 +19,8 @@ class TelegramMessageNotParsedException(Exception):
 class UnknownCommandException(APIException):
     status_code = status.HTTP_400_BAD_REQUEST
     default_detail = "Unknown command is passed by the user."
+
+
+class UnauthorizedUserCalledReportGenerationException(Exception):
+    def __init__(self, message="Unauthorized user called for report generation."):
+        self.message = message

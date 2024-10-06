@@ -3,6 +3,7 @@ import json
 import os
 from unittest import mock
 
+from django.test import override_settings
 from precisely import assert_that, has_attrs, is_mapping, is_sequence
 
 from telegram_bot.constants import (
@@ -15,6 +16,7 @@ from telegram_bot.enums import ChatType, UserActionType
 from telegram_bot.exceptions import (
     TelegramMessageNotParsedException,
     UnknownCommandException,
+    UnauthorizedUserCalledReportGenerationException,
 )
 from telegram_bot.message_handling_services import (
     MessageHandler,
@@ -1237,6 +1239,27 @@ class TestBotCommandProcessor(TelegramBotRequestsTestBase):
         processor.process()
         mock_process_command.assert_called_once()
         mock_remove_inline_keyboard.assert_not_called()
+
+    @override_settings(ADMIN_USER_IDS=[123])
+    def test_process_report_user_not_an_admin(self):
+        payload = copy.deepcopy(self.command_as_message_in_private_chat_request_payload)
+        payload["message"]["text"] = "/report_01-01-2024_02-01-2024"
+        serialized_data = self._get_serialized_request_data(payload)
+        processor = BotCommandProcessor(serialized_data)
+        with self.assertRaises(UnauthorizedUserCalledReportGenerationException):
+            processor.process()
+
+    @override_settings(ADMIN_USER_IDS=[])
+    @mock.patch(
+        "telegram_bot.message_handling_services.BotCommandProcessor._process_report_generation_command"
+    )
+    def test_process_report_admin_ids_is_empty(self, mock_process_command):
+        payload = copy.deepcopy(self.command_as_message_in_private_chat_request_payload)
+        payload["message"]["text"] = "/report_01-01-2024_02-01-2024"
+        serialized_data = self._get_serialized_request_data(payload)
+        processor = BotCommandProcessor(serialized_data)
+        processor.process()
+        mock_process_command.assert_called_once()
 
     # command: /unknown
     def test_process_unknown_command_in_the_private_chat_as_a_message(self):

@@ -12,6 +12,7 @@ from telegram_bot.exceptions import (
     TelegramMessageNotParsedException,
     AllDataReceivedException,
     UnknownCommandException,
+    UnauthorizedUserCalledReportGenerationException,
 )
 from telegram_bot.messages_texts import (
     FIRST_INSTRUCTIONS,
@@ -247,10 +248,9 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
         pass
 
     def _process_report_generation_command(self):
-        # TODO: check if this method is tested
         if settings.ADMIN_USER_IDS:
             if self.parsed_telegram_message.chat_id not in settings.ADMIN_USER_IDS:
-                return
+                raise UnauthorizedUserCalledReportGenerationException
         report_dates = self.parsed_telegram_message.data.split("_")[1:]
         self.generated_report = ReportGenerator(
             start_date=datetime.datetime.strptime(report_dates[0], DATE_FORMAT),
