@@ -1,7 +1,8 @@
 import json
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 
 from telegram_bot.enums import ChatType, MessageType, UserActionType
+from telegram_bot.types import ResponsePayload
 
 
 @dataclass
@@ -48,8 +49,10 @@ class ResponseMessage:
     reply_markup: dict | None = None
     file_path: str = None
 
-    def to_payload(self) -> dict:
-        payload = {"data": {"text": self.text, "chat_id": self.chat_id}}
+    def to_payload(self) -> ResponsePayload:
+        payload: ResponsePayload = {
+            "data": {"text": self.text, "chat_id": self.chat_id}
+        }
         if self.reply_markup:
             payload["data"]["reply_markup"] = json.dumps(self.reply_markup)
         if self.file_path:

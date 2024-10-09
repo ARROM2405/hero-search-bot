@@ -29,6 +29,7 @@ from telegram_bot.parsers import (
 )
 from telegram_bot.report_generator import ReportGenerator
 from telegram_bot.sequential_messages_processor import SequentialMessagesProcessor
+from telegram_bot.types import ResponsePayload
 
 
 class TelegramMessageProcessorBase(ABC):
@@ -103,7 +104,7 @@ class UserMessageProcessor(TelegramMessageProcessorBase):
         except AllDataReceivedException:
             self.all_data_received = True
 
-    def prepare_response(self) -> dict | None:
+    def prepare_response(self) -> ResponsePayload | None:
         if "edited_message" in self.telegram_message:
             return self._get_message_edition_response()
         reply_markup = None
@@ -143,7 +144,7 @@ class UserMessageProcessor(TelegramMessageProcessorBase):
         payload = response_object.to_payload()
         return payload
 
-    def _get_message_edition_response(self):
+    def _get_message_edition_response(self) -> ResponsePayload:
         if self.sequential_messages_processor.check_if_user_input_exists(
             self.parsed_telegram_message.user_id
         ):
@@ -257,7 +258,7 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
             end_date=datetime.datetime.strptime(report_dates[1], DATE_FORMAT),
         ).generate_report()
 
-    def _get_start_command_response(self) -> dict:  # TODO: change typing to typed dict?
+    def _get_start_command_response(self) -> ResponsePayload:
         response_text = FIRST_INSTRUCTIONS
         response_reply_markup = {
             "inline_keyboard": [
@@ -278,7 +279,7 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
         payload = response_object.to_payload()
         return payload
 
-    def _get_instructions_confirmed_command_response(self) -> dict:
+    def _get_instructions_confirmed_command_response(self) -> ResponsePayload:
         response_text = MESSAGES_MAPPING["case_id"]
         response_object = ResponseMessage(
             text=response_text,
@@ -287,7 +288,7 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
         payload = response_object.to_payload()
         return payload
 
-    def _get_input_confirmed_command_response(self) -> dict:
+    def _get_input_confirmed_command_response(self) -> ResponsePayload:
         response_object = ResponseMessage(
             text=INPUT_CONFIRMED_RESPONSE,
             chat_id=self.parsed_telegram_message.chat_id,
@@ -295,7 +296,7 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
         payload = response_object.to_payload()
         return payload
 
-    def _get_input_not_confirmed_command_response(self) -> dict:
+    def _get_input_not_confirmed_command_response(self) -> ResponsePayload:
         response_text = INPUT_NOT_CONFIRMED_RESPONSE
         response_reply_markup = {
             "inline_keyboard": [
@@ -313,14 +314,13 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
             reply_markup=response_reply_markup,
             chat_id=self.parsed_telegram_message.chat_id,
         )
-        print("response_object", response_object)
         payload = response_object.to_payload()
         return payload
 
     def _get_remove_and_restart_input_command_response(self):
         return self._get_instructions_confirmed_command_response()
 
-    def _get_continue_input_command_response(self):
+    def _get_continue_input_command_response(self) -> ResponsePayload:
         response_text = SequentialMessagesProcessor(
             message_data=None,
             user_id=self.parsed_telegram_message.user_id,
@@ -331,14 +331,14 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
         )
         return response_object.to_payload()
 
-    def _get_report_generation_command_response(self) -> dict:
+    def _get_report_generation_command_response(self) -> ResponsePayload:
         return ResponseMessage(
             chat_id=self.parsed_telegram_message.chat_id,
             text="",
             file_path=self.generated_report,
         ).to_payload()
 
-    def prepare_response(self) -> dict | None:
+    def prepare_response(self) -> ResponsePayload | None:
         if self.parsed_telegram_message.chat_type is not ChatType.GROUP:
             match self.parsed_telegram_message.data:
                 case "/start":
