@@ -10,8 +10,7 @@ load_dotenv(os.path.join(settings.BASE_DIR, ".env"))
 
 BASE_URL: Final = f"https://api.telegram.org/bot{os.getenv('BOT_TOKEN')}/"
 
-# TODO: create as enum
-ORDER_OF_MESSAGES: Final = [
+ORDER_OF_MESSAGES: Final = (
     "case_id",
     "hero_last_name",
     "hero_first_name",
@@ -23,7 +22,7 @@ ORDER_OF_MESSAGES: Final = [
     "relative_patronymic",
     "is_added_to_dna_db",
     "comment",
-]
+)
 
 MESSAGES_MAPPING: Final = {
     "case_id": INQUERY_MESSAGE_START + CASE_ID_INQUERY,

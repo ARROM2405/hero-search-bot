@@ -345,9 +345,6 @@ COMMAND_AS_CALLBACK_IN_GROUP = {}
 
 MESSAGE_IN_GROUP = {}
 
-# TODO: bot is made an admin in the group?
-
-
 # CHANNEL
 
 BOT_SET_AS_ADMIN_IN_CHANNEL = {

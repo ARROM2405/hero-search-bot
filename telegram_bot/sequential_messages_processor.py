@@ -44,7 +44,7 @@ class SequentialMessagesProcessor:
                 next_message_key = messages_not_provided_yet[1]
                 self.next_message_key = next_message_key
             return current_message_key, next_message_key
-        raise AllDataReceivedException  # TODO: Probably other type of error should be used here
+        raise AllDataReceivedException
 
     def _create_new_redis_saved_data_set(self, mapping: dict[str, str]):
         client.hset(str(self.user_id), mapping={**mapping})

@@ -41,8 +41,6 @@ class TelegramBotRequestsTestBase(APITestCase):
             COMMAND_AS_MESSAGE_IN_GROUP_CHAT
         )
 
-        # TODO: add command as callback, message, bot set as admin, all for groups.
-
     def _get_serialized_request_data(self, request_payload: dict) -> dict:
         serializer = TelegramBotSerializer(data=request_payload)
         serializer.is_valid(raise_exception=True)

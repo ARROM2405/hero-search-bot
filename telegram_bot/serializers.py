@@ -7,17 +7,14 @@ from rest_framework.fields import Field
 field_type = TypeVar("field_type", bound=Field)
 
 
-# TODO: make as class decorator
-def create_base_serializer_with_field(
-    field_name: str,
-    field: type(field_type),
+def class_with_added_field(
+    field_name: str, field: type[Field | serializers.Serializer]
 ):
-    class BaseSerializer(serializers.Serializer):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            self.fields[field_name] = field()
+    def decorator(cls):
+        cls._declared_fields[field_name] = field()
+        return cls
 
-    return BaseSerializer
+    return decorator
 
 
 class TelegramUserSerializer(serializers.Serializer):
@@ -37,15 +34,14 @@ class TelegramUserSerializer(serializers.Serializer):
     )
 
 
-WithFromFieldSerializerBase = create_base_serializer_with_field(
-    "from",
-    TelegramUserSerializer,
-)
+@class_with_added_field("from", TelegramUserSerializer)
+class WithFromFieldSerializerBase(serializers.Serializer):
+    pass
 
-WithIdFieldSerializerBase = create_base_serializer_with_field(
-    "id",
-    serializers.IntegerField,
-)
+
+@class_with_added_field("id", serializers.IntegerField)
+class WithIdFieldSerializerBase(serializers.Serializer):
+    pass
 
 
 class NewChatMemberDetailsSerializer(serializers.Serializer):
