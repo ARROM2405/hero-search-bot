@@ -6,6 +6,7 @@ from django.db.models import QuerySet
 
 from telegram_bot.constants import DATE_FORMAT
 from telegram_bot.models import HeroData
+from telegram_bot.logger_config import logger
 
 
 class ReportGenerator:
@@ -57,6 +58,7 @@ class ReportGenerator:
 
     def generate_report(self):
         file_name = self._get_file_name()
+        logger.info(f"Generating report {file_name}.")
         with open(file_name, "w") as report_file:
             headers_line = "Номер справи;ПІБ зниклого;Дата народження зниклого;Речі для отримання ДНК;Чи додано до бази ДНК;ПІБ родича;Коментар;Дата подання даних\n"
             report_file.write(headers_line)

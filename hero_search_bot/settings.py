@@ -136,3 +136,5 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
 ADMIN_USER_IDS = []
+
+LOGS_DIRECTORY = os.getenv("LOGS_DIRECTORY", os.path.join(BASE_DIR, "logs"))

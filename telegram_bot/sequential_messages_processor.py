@@ -13,6 +13,7 @@ from telegram_bot.constants import (
 )
 from telegram_bot.exceptions import AllDataReceivedException
 from telegram_bot.models import HeroData, TelegramUser
+from telegram_bot.logger_config import logger
 
 load_dotenv(os.path.join(settings.BASE_DIR, ".env"))
 client = redis.Redis(host=os.getenv("REDIS_HOST"), port=os.getenv("REDIS_PORT"), db=0)
@@ -87,10 +88,12 @@ class SequentialMessagesProcessor:
 
     @staticmethod
     def remove_incorrect_input(user_id: int):
+        logger.info(f"Removing incorrect input for user_id: {user_id}")
         client.delete(str(user_id))
 
     @staticmethod
     def save_confirmed_data(user_id: int, entry_author: TelegramUser) -> HeroData:
+        logger.info(f"Saving confirmed data for user_id: {user_id}")
         data = SequentialMessagesProcessor.get_user_input(user_id)
         print("saved_input:", end=" ")
         print(data)

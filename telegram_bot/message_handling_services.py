@@ -31,6 +31,8 @@ from telegram_bot.report_generator import ReportGenerator
 from telegram_bot.sequential_messages_processor import SequentialMessagesProcessor
 from telegram_bot.types import ResponsePayload
 
+from telegram_bot.logger_config import logger
+
 
 class TelegramMessageProcessorBase(ABC):
     PARSER = None
@@ -53,12 +55,18 @@ class MemberStatusChangeProcessor(TelegramMessageProcessorBase):
     PARSER = ChatStatusChangeMessageParser
 
     def _save_bot_status_change(self) -> BotStatusChange:
-        telegram_user, _ = TelegramUser.objects.get_or_create(
+
+        telegram_user, created = TelegramUser.objects.get_or_create(
             telegram_id=self.parsed_telegram_message.user_id,
             first_name=self.parsed_telegram_message.first_name,
             last_name=self.parsed_telegram_message.last_name,
             username=self.parsed_telegram_message.username,
         )
+
+        if created:
+            logger.info(
+                f"Created user: username: telegram_id: {telegram_user}, {self.parsed_telegram_message.username}, first_name: {self.parsed_telegram_message}, last_name: {self.parsed_telegram_message}"
+            )
 
         return BotStatusChange.objects.create(
             initiator=telegram_user,
@@ -68,6 +76,9 @@ class MemberStatusChangeProcessor(TelegramMessageProcessorBase):
         )
 
     def process(self):
+        logger.info(
+            f"Processing bot status change message: {self.parsed_telegram_message}"
+        )
         self.parsed_telegram_message = self.PARSER.parse(self.telegram_message)
         self._save_bot_status_change()
 
@@ -96,7 +107,7 @@ class UserMessageProcessor(TelegramMessageProcessorBase):
 
     def process(self):
         self.parsed_telegram_message = self.PARSER.parse(self.telegram_message)
-        print("parsed_message", self.parsed_telegram_message)
+        logger.info(f"Processing user message: {self.parsed_telegram_message}")
         try:
             self._prepare_sequential_messages_processor()
             if not self.parsed_telegram_message.message_edition:
@@ -140,7 +151,6 @@ class UserMessageProcessor(TelegramMessageProcessorBase):
         )
         if reply_markup:
             response_object.reply_markup = reply_markup
-        print("response_object", response_object)
         payload = response_object.to_payload()
         return payload
 
@@ -190,7 +200,7 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
 
     def process(self):
         self.parsed_telegram_message = self.PARSER.parse(self.telegram_message)
-        print("parsed_message", self.parsed_telegram_message)
+        logger.info(f"Processing bot command: {self.parsed_telegram_message}")
         if self.parsed_telegram_message.sent_by_inline_keyboard:
             self._remove_inline_keyboard_from_replied_message(
                 chat_id=self.parsed_telegram_message.chat_id,
@@ -392,20 +402,24 @@ class MessageHandler:
 
     def _send_response(self, response: dict):
         url = self._get_response_url(response)
-        print(url)
-        print(response)
         response_call = requests.post(url=url, **response)
-        print(response_call.status_code, response_call.text)
+        logger.info(
+            f"Telegram response status for response sent: {response_call.status_code}, url: {url}"
+        )
 
     def handle_telegram_message(self):
         processor = self._get_message_processor()
+        logger.info(
+            f"{processor.__class__.__name__} picked for {self.telegram_message} processing"
+        )
         try:
             processor.process()
             response = processor.prepare_response()
             if response:
+                logger.info(f"Prepared response: {response}")
                 self._send_response(response)
-        except Exception:
-            # TODO: add logging
+        except Exception as e:
+            logger.exception(f"Exception: {e}")
             pass
         finally:
             processor.finalize()
