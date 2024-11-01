@@ -5,7 +5,13 @@ from abc import ABC, abstractmethod
 import requests
 from django.conf import settings
 
-from telegram_bot.constants import BASE_URL, MESSAGES_MAPPING, DATE_FORMAT
+from telegram_bot.constants import (
+    BASE_URL,
+    MESSAGES_MAPPING,
+    DATE_FORMAT,
+    MESSAGE_TEXT_VALIDATION_FAILED,
+    MESSAGE_USER_INPUT_EXPIRED,
+)
 from telegram_bot.dataclasses import ResponseMessage
 from telegram_bot.enums import ChatType
 from telegram_bot.exceptions import (
@@ -13,6 +19,8 @@ from telegram_bot.exceptions import (
     AllDataReceivedException,
     UnknownCommandException,
     UnauthorizedUserCalledReportGenerationException,
+    UserInputExpiredException,
+    UserMessageValidationFailedException,
 )
 from telegram_bot.messages_texts import (
     FIRST_INSTRUCTIONS,
@@ -32,6 +40,16 @@ from telegram_bot.sequential_messages_processor import SequentialMessagesProcess
 from telegram_bot.types import ResponsePayload
 
 from telegram_bot.logger_config import logger
+
+
+class UserInputExpiredResponseMixin:
+    def _get_user_input_expired_response(self):
+        response_object = ResponseMessage(
+            text=MESSAGE_USER_INPUT_EXPIRED,
+            chat_id=self.parsed_telegram_message.chat_id,
+        )
+        payload = response_object.to_payload()
+        return payload
 
 
 class TelegramMessageProcessorBase(ABC):
@@ -55,7 +73,6 @@ class MemberStatusChangeProcessor(TelegramMessageProcessorBase):
     PARSER = ChatStatusChangeMessageParser
 
     def _save_bot_status_change(self) -> BotStatusChange:
-
         telegram_user, created = TelegramUser.objects.get_or_create(
             telegram_id=self.parsed_telegram_message.user_id,
             first_name=self.parsed_telegram_message.first_name,
@@ -89,13 +106,15 @@ class MemberStatusChangeProcessor(TelegramMessageProcessorBase):
         pass
 
 
-class UserMessageProcessor(TelegramMessageProcessorBase):
+class UserMessageProcessor(TelegramMessageProcessorBase, UserInputExpiredResponseMixin):
     PARSER = UserMessageParser
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.sequential_messages_processor = None
         self.all_data_received = False
+        self.message_validation_passed = None
+        self.user_input_expired = False
 
     def _prepare_sequential_messages_processor(self):
         if not self.parsed_telegram_message:
@@ -114,8 +133,18 @@ class UserMessageProcessor(TelegramMessageProcessorBase):
                 self.sequential_messages_processor.save_message()
         except AllDataReceivedException:
             self.all_data_received = True
+        except UserMessageValidationFailedException as e:
+            logger.exception(f"Exception: {e}")
+            self.message_validation_passed = False
+        except UserInputExpiredException as e:
+            logger.exception(f"Exception: {e}")
+            self.user_input_expired = True
 
     def prepare_response(self) -> ResponsePayload | None:
+        if self.user_input_expired:
+            return self._get_user_input_expired_response()
+        if self.message_validation_passed is False:
+            return self._get_message_validation_failed_response()
         if "edited_message" in self.telegram_message:
             return self._get_message_edition_response()
         reply_markup = None
@@ -181,12 +210,32 @@ class UserMessageProcessor(TelegramMessageProcessorBase):
             payload = response_object.to_payload()
             return payload
 
+    def _get_message_validation_failed_response(self):
+        response_object = ResponseMessage(
+            text=f"{MESSAGE_TEXT_VALIDATION_FAILED}\n{MESSAGES_MAPPING[self.sequential_messages_processor.current_message_key]}",
+            chat_id=self.parsed_telegram_message.chat_id,
+            reply_markup={
+                "inline_keyboard": [
+                    {
+                        "text": "Почати вводити дані з початку.",
+                        "callback_data": "/start",
+                    }
+                ],
+            },
+        )
+        payload = response_object.to_payload()
+        return payload
+
     def finalize(self):
         pass
 
 
-class BotCommandProcessor(TelegramMessageProcessorBase):
+class BotCommandProcessor(TelegramMessageProcessorBase, UserInputExpiredResponseMixin):
     PARSER = TelegramCommandParser
+
+    def __init__(self, telegram_message: dict):
+        super().__init__(telegram_message)
+        self.user_input_expired = False
 
     def _remove_inline_keyboard_from_replied_message(
         self, chat_id: int, message_id: int
@@ -198,14 +247,7 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
         }
         _response = requests.post(url=BASE_URL + "editMessageReplyMarkup", json=payload)
 
-    def process(self):
-        self.parsed_telegram_message = self.PARSER.parse(self.telegram_message)
-        logger.info(f"Processing bot command: {self.parsed_telegram_message}")
-        if self.parsed_telegram_message.sent_by_inline_keyboard:
-            self._remove_inline_keyboard_from_replied_message(
-                chat_id=self.parsed_telegram_message.chat_id,
-                message_id=self.parsed_telegram_message.replied_message_id,
-            )
+    def _dispatch_processing(self):
         match self.parsed_telegram_message.data:
             case "/start":
                 self._process_start_command()
@@ -224,11 +266,27 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
             case _:
                 raise UnknownCommandException
 
+    def process(self):
+        self.parsed_telegram_message = self.PARSER.parse(self.telegram_message)
+        logger.info(f"Processing bot command: {self.parsed_telegram_message}")
+        if self.parsed_telegram_message.sent_by_inline_keyboard:
+            self._remove_inline_keyboard_from_replied_message(
+                chat_id=self.parsed_telegram_message.chat_id,
+                message_id=self.parsed_telegram_message.replied_message_id,
+            )
+        try:
+            self._dispatch_processing()
+        except UserInputExpiredException as e:
+            logger.error(f"Exception occurred {e}")
+            self.user_input_expired = True
+
     def _process_start_command(self):
         pass
 
     def _process_instructions_confirmed_command(self):
-        pass
+        SequentialMessagesProcessor.create_new_redis_entry(
+            user_id=self.parsed_telegram_message.chat_id
+        )
 
     def _process_input_confirmed_command(self):
         data_entry_author, _ = TelegramUser.objects.get_or_create(
@@ -350,6 +408,8 @@ class BotCommandProcessor(TelegramMessageProcessorBase):
 
     def prepare_response(self) -> ResponsePayload | None:
         if self.parsed_telegram_message.chat_type is not ChatType.GROUP:
+            if self.user_input_expired:
+                return self._get_user_input_expired_response()
             match self.parsed_telegram_message.data:
                 case "/start":
                     return self._get_start_command_response()
@@ -401,6 +461,7 @@ class MessageHandler:
         return BASE_URL + "sendMessage"
 
     def _send_response(self, response: dict):
+        logger.info(f"Prepared response: {response}")
         url = self._get_response_url(response)
         response_call = requests.post(url=url, **response)
         logger.info(
@@ -416,7 +477,6 @@ class MessageHandler:
             processor.process()
             response = processor.prepare_response()
             if response:
-                logger.info(f"Prepared response: {response}")
                 self._send_response(response)
         except Exception as e:
             logger.exception(f"Exception: {e}")

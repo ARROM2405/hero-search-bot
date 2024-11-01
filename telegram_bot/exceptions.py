@@ -20,3 +20,13 @@ class UnknownCommandException(Exception):
 class UnauthorizedUserCalledReportGenerationException(Exception):
     def __init__(self, message="Unauthorized user called for report generation."):
         self.message = message
+
+
+class UserInputExpiredException(Exception):
+    def __init__(self):
+        self.message = "User input in the memory is expired and deleted."
+
+
+class UserMessageValidationFailedException(Exception):
+    def __init__(self):
+        self.message = "User input validation failed."

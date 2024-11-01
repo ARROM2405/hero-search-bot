@@ -136,12 +136,17 @@ class TestMessageHandler(TelegramBotRequestsTestBase):
     @mock.patch(
         "telegram_bot.message_handling_services.SequentialMessagesProcessor.get_response_text"
     )
+    @mock.patch(
+        "telegram_bot.message_handling_services.SequentialMessagesProcessor.get_user_input"
+    )
     @mock.patch("telegram_bot.message_handling_services.requests.post")
     def test_handle_telegram_user_message_in_private_chat(
         self,
         post_request_mock,
+        get_user_input_mock,
         get_response_text_mock,
     ):
+        get_user_input_mock.return_value = {b"empty": "True"}
         response_text = "some response text"
         get_response_text_mock.return_value = response_text
 
@@ -346,9 +351,10 @@ class TestUserMessageProcessor(TelegramBotRequestsTestBase):
             ) as hgetall_mock, mock.patch(
                 "telegram_bot.sequential_messages_processor.redis.Redis.hset"
             ) as hset_mock, mock.patch(
-                "telegram_bot.sequential_messages_processor.redis.Redis.expire"
-            ) as expire_mock:
-                hgetall_mock.return_value = {}
+                "telegram_bot.sequential_messages_processor.SequentialMessagesProcessor.check_if_user_input_exists"
+            ) as check_if_user_input_exists_mock:
+                check_if_user_input_exists_mock.return_value = True
+                hgetall_mock.return_value = {b"empty": "True"}
                 serialized_request_data = self._get_serialized_request_data(payload)
                 processor = UserMessageProcessor(serialized_request_data)
                 processor.process()
@@ -356,7 +362,6 @@ class TestUserMessageProcessor(TelegramBotRequestsTestBase):
                 hset_mock.assert_called_once_with(
                     str(chat_id), mapping={"case_id": message_text}
                 )
-                expire_mock.assert_called_once_with(str(chat_id), 30 * 60)
                 assert processor.all_data_received is False
 
         with self.subTest():
@@ -365,8 +370,9 @@ class TestUserMessageProcessor(TelegramBotRequestsTestBase):
             ) as hgetall_mock, mock.patch(
                 "telegram_bot.sequential_messages_processor.redis.Redis.hset"
             ) as hset_mock, mock.patch(
-                "telegram_bot.sequential_messages_processor.redis.Redis.expire"
-            ) as expire_mock:
+                "telegram_bot.sequential_messages_processor.SequentialMessagesProcessor.check_if_user_input_exists"
+            ) as check_if_user_input_exists_mock:
+                check_if_user_input_exists_mock.return_value = True
                 hgetall_mock.return_value = {"case_id".encode(): None}
                 serialized_request_data = self._get_serialized_request_data(payload)
                 processor = UserMessageProcessor(serialized_request_data)
@@ -375,7 +381,6 @@ class TestUserMessageProcessor(TelegramBotRequestsTestBase):
                 hset_mock.assert_called_once_with(
                     str(chat_id), mapping={"hero_last_name": message_text}
                 )
-                expire_mock.assert_not_called()
                 assert processor.all_data_received is False
 
         with self.subTest():
@@ -452,8 +457,18 @@ class TestUserMessageProcessor(TelegramBotRequestsTestBase):
                                 {
                                     "text": f"{MESSAGE_TEXT_VALIDATION_FAILED}\n{MESSAGES_MAPPING['hero_date_of_birth']}",
                                     "chat_id": chat_id,
+                                    "reply_markup": json.dumps(
+                                        {
+                                            "inline_keyboard": [
+                                                {
+                                                    "text": "Почати вводити дані з початку.",
+                                                    "callback_data": "/start",
+                                                }
+                                            ],
+                                        },
+                                    ),
                                 }
-                            )
+                            ),
                         }
                     ),
                 )
@@ -466,7 +481,9 @@ class TestUserMessageProcessor(TelegramBotRequestsTestBase):
                 "telegram_bot.sequential_messages_processor.redis.Redis.hset"
             ) as hset_mock, mock.patch(
                 "telegram_bot.sequential_messages_processor.redis.Redis.expire"
-            ) as expire_mock:
+            ) as expire_mock, mock.patch(
+                "telegram_bot.sequential_messages_processor.SequentialMessagesProcessor.check_if_user_input_exists"
+            ) as check_if_user_input_exists_mock:
                 hgetall_mock.return_value = {}
                 serialized_request_data = self._get_serialized_request_data(payload)
                 processor = UserMessageProcessor(serialized_request_data)
@@ -523,7 +540,10 @@ class TestUserMessageProcessor(TelegramBotRequestsTestBase):
                 "telegram_bot.sequential_messages_processor.redis.Redis.hset"
             ) as hset_mock, mock.patch(
                 "telegram_bot.sequential_messages_processor.redis.Redis.expire"
-            ) as expire_mock:
+            ) as expire_mock, mock.patch(
+                "telegram_bot.sequential_messages_processor.SequentialMessagesProcessor.check_if_user_input_exists"
+            ) as check_if_user_input_exists_mock:
+                check_if_user_input_exists_mock.return_value = True
                 hgetall_mock.side_effect = [
                     {
                         "case_id".encode(): "some_case_id".encode(),
@@ -640,8 +660,11 @@ class TestUserMessageProcessor(TelegramBotRequestsTestBase):
         with self.subTest():
             with mock.patch(
                 "telegram_bot.message_handling_services.SequentialMessagesProcessor.check_if_user_input_exists",
-            ) as mock_check_if_user_input_exists:
+            ) as mock_check_if_user_input_exists, mock.patch(
+                "telegram_bot.sequential_messages_processor.redis.Redis.hgetall",
+            ) as hgetall_mock:
                 mock_check_if_user_input_exists.return_value = True
+                hgetall_mock.return_value = {"case_id".encode(): None}
                 serialized_request_data = self._get_serialized_request_data(
                     self.edited_message_in_private_chat_request_payload
                 )
@@ -685,18 +708,6 @@ class TestUserMessageProcessor(TelegramBotRequestsTestBase):
                         }
                     ),
                 )
-        with self.subTest():
-            with mock.patch(
-                "telegram_bot.message_handling_services.SequentialMessagesProcessor.check_if_user_input_exists",
-            ) as mock_check_if_user_input_exists:
-                mock_check_if_user_input_exists.return_value = False
-                serialized_request_data = self._get_serialized_request_data(
-                    self.edited_message_in_private_chat_request_payload
-                )
-                processor = UserMessageProcessor(serialized_request_data)
-                processor.process()
-                response_object = processor.prepare_response()
-                assert response_object is None
 
 
 class TestBotCommandProcessor(TelegramBotRequestsTestBase):

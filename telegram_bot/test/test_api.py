@@ -137,10 +137,29 @@ class TestTelegramBotApiViewSet(TelegramBotRequestsTestBase):
         )
 
     @mock.patch(
+        "telegram_bot.sequential_messages_processor.SequentialMessagesProcessor.check_if_user_input_exists"
+    )
+    @mock.patch(
+        "telegram_bot.sequential_messages_processor.SequentialMessagesProcessor._validate_user_input"
+    )
+    @mock.patch(
         "telegram_bot.message_handling_services.SequentialMessagesProcessor.get_response_text"
     )
+    @mock.patch(
+        "telegram_bot.message_handling_services.SequentialMessagesProcessor.get_user_input"
+    )
     @mock.patch("telegram_bot.message_handling_services.requests.post")
-    def test_message_to_the_private_chat(self, mock_post, mock_get_response_text):
+    def test_message_to_the_private_chat(
+        self,
+        mock_post,
+        mock_get_user_input,
+        mock_get_response_text,
+        mock_validate_user_input,
+        mock_check_if_user_input_exists,
+    ):
+        mock_get_user_input.return_value = {b"case_id": "123"}
+        mock_validate_user_input.return_value = True
+        mock_check_if_user_input_exists.return_value = True
         response_text = MESSAGES_MAPPING["hero_last_name"]
 
         mock_get_response_text.return_value = response_text
@@ -168,10 +187,18 @@ class TestTelegramBotApiViewSet(TelegramBotRequestsTestBase):
     @mock.patch(
         "telegram_bot.message_handling_services.SequentialMessagesProcessor.get_response_text"
     )
+    @mock.patch(
+        "telegram_bot.message_handling_services.SequentialMessagesProcessor.get_user_input"
+    )
     @mock.patch("telegram_bot.message_handling_services.requests.post")
     def test_edited_message_to_the_private_chat(
-        self, mock_post, mock_get_response_text, mock_check_if_user_input_exists
+        self,
+        mock_post,
+        mock_get_user_input,
+        mock_get_response_text,
+        mock_check_if_user_input_exists,
     ):
+        mock_get_user_input.return_value = {b"empty": "True"}
         mock_check_if_user_input_exists.return_value = True
         response_text = EDITED_MESSAGE_RESPONSE
         mock_get_response_text.return_value = response_text
@@ -216,7 +243,9 @@ class TestTelegramBotApiViewSet(TelegramBotRequestsTestBase):
     )
     @mock.patch("telegram_bot.message_handling_services.requests.post")
     def test_command_as_callback_to_private_chat(
-        self, mock_post, mock_save_confirmed_data
+        self,
+        mock_post,
+        mock_save_confirmed_data,
     ):
         payload = deepcopy(self.command_as_callback_in_private_chat_request_payload)
         payload["callback_query"]["data"] = "/input_confirmed"

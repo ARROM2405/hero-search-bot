@@ -9,9 +9,12 @@ from dotenv import load_dotenv
 from telegram_bot.constants import (
     ORDER_OF_MESSAGES,
     MESSAGES_MAPPING,
-    MESSAGE_TEXT_VALIDATION_FAILED,
 )
-from telegram_bot.exceptions import AllDataReceivedException
+from telegram_bot.exceptions import (
+    AllDataReceivedException,
+    UserInputExpiredException,
+    UserMessageValidationFailedException,
+)
 from telegram_bot.models import HeroData, TelegramUser
 from telegram_bot.logger_config import logger
 
@@ -20,13 +23,16 @@ client = redis.Redis(host=os.getenv("REDIS_HOST"), port=os.getenv("REDIS_PORT"),
 
 
 class SequentialMessagesProcessor:
-    def __init__(self, message_data: str | None, user_id: int):
+    def __init__(
+        self,
+        message_data: str | None,
+        user_id: int,
+    ):
         self.message_data = message_data
         self.user_id = user_id
         self.current_message_key, self.next_message_key = (
             self._get_current_and_next_message_keys()
         )
-        self.message_validation_passed = self._validate_user_input(self.message_data)
 
     def _get_current_and_next_message_keys(self) -> tuple[str, str | None]:
         ordered_message_keys = copy.copy(ORDER_OF_MESSAGES)
@@ -47,25 +53,20 @@ class SequentialMessagesProcessor:
             return current_message_key, next_message_key
         raise AllDataReceivedException
 
-    def _create_new_redis_saved_data_set(self, mapping: dict[str, str]):
-        client.hset(str(self.user_id), mapping={**mapping})
-        client.expire(str(self.user_id), 60 * 30)
+    @staticmethod
+    def create_new_redis_entry(user_id: int):
+        client.hset(str(user_id), mapping={"empty": "True"})
+        client.expire(str(user_id), 60 * 30)
 
     def save_message(self):
-        if self.message_validation_passed:
-            if self.current_message_key == ORDER_OF_MESSAGES[0]:
-                self._create_new_redis_saved_data_set(
-                    {self.current_message_key: self.message_data}
-                )
-            else:
-                client.hset(
-                    str(self.user_id),
-                    mapping={self.current_message_key: self.message_data},
-                )
+        self.validate_user_input_exists(self.user_id)
+        self._validate_user_input(self.message_data)
+        client.hset(
+            str(self.user_id),
+            mapping={self.current_message_key: self.message_data},
+        )
 
     def get_response_text(self) -> str:
-        if self.message_validation_passed is False:
-            return f"{MESSAGE_TEXT_VALIDATION_FAILED}\n{MESSAGES_MAPPING[self.current_message_key]}"
         if self.next_message_key:
             return MESSAGES_MAPPING[self.next_message_key]
         raise AllDataReceivedException
@@ -88,15 +89,15 @@ class SequentialMessagesProcessor:
 
     @staticmethod
     def remove_incorrect_input(user_id: int):
+        SequentialMessagesProcessor.validate_user_input_exists(user_id)
         logger.info(f"Removing incorrect input for user_id: {user_id}")
         client.delete(str(user_id))
 
     @staticmethod
     def save_confirmed_data(user_id: int, entry_author: TelegramUser) -> HeroData:
+        SequentialMessagesProcessor.validate_user_input_exists(user_id)
         logger.info(f"Saving confirmed data for user_id: {user_id}")
         data = SequentialMessagesProcessor.get_user_input(user_id)
-        print("saved_input:", end=" ")
-        print(data)
         hero_data = HeroData.objects.create(
             case_id=int(data["case_id".encode()].decode()),
             hero_last_name=data["hero_last_name".encode()].decode(),
@@ -124,7 +125,7 @@ class SequentialMessagesProcessor:
             ),
             author=entry_author,
         )
-        client.delete(user_id)
+        client.delete(str(user_id))
         return hero_data
 
     @staticmethod
@@ -137,13 +138,14 @@ class SequentialMessagesProcessor:
             return True
         return False
 
-    def _validate_user_input(self, value: str) -> bool:
+    @staticmethod
+    def validate_user_input_exists(user_id: int):
+        if not SequentialMessagesProcessor.check_if_user_input_exists(user_id):
+            raise UserInputExpiredException
+
+    def _validate_user_input(self, value: str):
         if self.current_message_key == "hero_date_of_birth":
             try:
                 datetime.strptime(value, "%d/%m/%Y")
             except ValueError:
-                return False
-        return True
-
-    # TODO: WHAT IF CHAT EXPIRED BUT THE MESSAGE IS RECEIVED? PROCESS AS A START COMMAND BUT WITH ADDITIONAL
-    #  EXPLANATIONS THAT THE CHAT IS EXPIRED
+                raise UserMessageValidationFailedException

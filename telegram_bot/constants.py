@@ -42,6 +42,9 @@ MESSAGES_MAPPING: Final = {
 MESSAGE_TEXT_VALIDATION_FAILED: Final = (
     "Дані в попередньому повідомленні мають неправельний формат. Спробуйте ще раз."
 )
+MESSAGE_USER_INPUT_EXPIRED = Final = (
+    "Для вводу всіх даних у вас є 30 хв. Так як не всі дані були подані, ми їх видалили. Будь ласка почніть від початку."
+)
 
 
 DATE_FORMAT: Final = "%d-%m-%Y"

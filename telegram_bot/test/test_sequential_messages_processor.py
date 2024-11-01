@@ -1,6 +1,9 @@
 from unittest import mock
 
-from telegram_bot.exceptions import AllDataReceivedException
+from telegram_bot.exceptions import (
+    AllDataReceivedException,
+    UserMessageValidationFailedException,
+)
 from telegram_bot.sequential_messages_processor import SequentialMessagesProcessor
 from telegram_bot.test.base import TelegramBotRequestsTestBase
 
@@ -105,15 +108,15 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
             ) as hgetall_mock, mock.patch(
                 "telegram_bot.sequential_messages_processor.redis.Redis.hset"
             ) as hset_mock, mock.patch(
-                "telegram_bot.sequential_messages_processor.redis.Redis.expire"
-            ) as expire_mock:
-                hgetall_mock.return_value = {}
+                "telegram_bot.sequential_messages_processor.SequentialMessagesProcessor.check_if_user_input_exists"
+            ) as check_if_user_input_exists_mock:
+                check_if_user_input_exists_mock.return_value = True
+                hgetall_mock.return_value = {b"empty": "True"}
                 process_sequential_message()
                 hgetall_mock.assert_called_once()
                 hset_mock.assert_called_once_with(
                     str(chat_id), mapping={"case_id": message_text}
                 )
-                expire_mock.assert_called_once_with(str(chat_id), 60 * 30)
 
         with self.subTest():
             with mock.patch(
@@ -121,15 +124,15 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
             ) as hgetall_mock, mock.patch(
                 "telegram_bot.sequential_messages_processor.redis.Redis.hset"
             ) as hset_mock, mock.patch(
-                "telegram_bot.sequential_messages_processor.redis.Redis.expire"
-            ) as expire_mock:
+                "telegram_bot.sequential_messages_processor.SequentialMessagesProcessor.check_if_user_input_exists"
+            ) as check_if_user_input_exists_mock:
+                check_if_user_input_exists_mock.return_value = True
                 hgetall_mock.return_value = {"case_id".encode(): None}
                 process_sequential_message()
                 hgetall_mock.assert_called_once()
                 hset_mock.assert_called_once_with(
                     str(chat_id), mapping={"hero_last_name": message_text}
                 )
-                expire_mock.assert_not_called()
 
         with self.subTest():
             with mock.patch(
@@ -137,8 +140,9 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
             ) as hgetall_mock, mock.patch(
                 "telegram_bot.sequential_messages_processor.redis.Redis.hset"
             ) as hset_mock, mock.patch(
-                "telegram_bot.sequential_messages_processor.redis.Redis.expire"
-            ) as expire_mock:
+                "telegram_bot.sequential_messages_processor.SequentialMessagesProcessor.check_if_user_input_exists"
+            ) as check_if_user_input_exists_mock:
+                check_if_user_input_exists_mock.return_value = True
                 hgetall_mock.return_value = {
                     "case_id".encode(): None,
                     "hero_last_name".encode(): None,
@@ -148,7 +152,6 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
                 hset_mock.assert_called_once_with(
                     str(chat_id), mapping={"hero_first_name": message_text}
                 )
-                expire_mock.assert_not_called()
 
         with self.subTest():
             with mock.patch(
@@ -156,8 +159,9 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
             ) as hgetall_mock, mock.patch(
                 "telegram_bot.sequential_messages_processor.redis.Redis.hset"
             ) as hset_mock, mock.patch(
-                "telegram_bot.sequential_messages_processor.redis.Redis.expire"
-            ) as expire_mock:
+                "telegram_bot.sequential_messages_processor.SequentialMessagesProcessor.check_if_user_input_exists"
+            ) as check_if_user_input_exists_mock:
+                check_if_user_input_exists_mock.return_value = True
                 hgetall_mock.return_value = {
                     "case_id".encode(): None,
                     "hero_last_name".encode(): None,
@@ -168,7 +172,6 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
                 hset_mock.assert_called_once_with(
                     str(chat_id), mapping={"hero_patronymic": message_text}
                 )
-                expire_mock.assert_not_called()
 
         with self.subTest():
             # date validation passed
@@ -177,8 +180,9 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
             ) as hgetall_mock, mock.patch(
                 "telegram_bot.sequential_messages_processor.redis.Redis.hset"
             ) as hset_mock, mock.patch(
-                "telegram_bot.sequential_messages_processor.redis.Redis.expire"
-            ) as expire_mock:
+                "telegram_bot.sequential_messages_processor.SequentialMessagesProcessor.check_if_user_input_exists"
+            ) as check_if_user_input_exists_mock:
+                check_if_user_input_exists_mock.return_value = True
                 hgetall_mock.return_value = {
                     "case_id".encode(): None,
                     "hero_last_name".encode(): None,
@@ -191,7 +195,6 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
                 hset_mock.assert_called_once_with(
                     str(chat_id), mapping={"hero_date_of_birth": date_message_input}
                 )
-                expire_mock.assert_not_called()
 
         with self.subTest():
             # date validation not passed
@@ -200,18 +203,19 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
             ) as hgetall_mock, mock.patch(
                 "telegram_bot.sequential_messages_processor.redis.Redis.hset"
             ) as hset_mock, mock.patch(
-                "telegram_bot.sequential_messages_processor.redis.Redis.expire"
-            ) as expire_mock:
-                hgetall_mock.return_value = {
-                    "case_id".encode(): None,
-                    "hero_last_name".encode(): None,
-                    "hero_first_name".encode(): None,
-                    "hero_patronymic".encode(): None,
-                }
-                process_sequential_message()
-                hgetall_mock.assert_called_once()
-                hset_mock.assert_not_called()
-                expire_mock.assert_not_called()
+                "telegram_bot.sequential_messages_processor.SequentialMessagesProcessor.check_if_user_input_exists"
+            ) as check_if_user_input_exists_mock:
+                with self.assertRaises(UserMessageValidationFailedException):
+                    check_if_user_input_exists_mock.return_value = True
+                    hgetall_mock.return_value = {
+                        "case_id".encode(): None,
+                        "hero_last_name".encode(): None,
+                        "hero_first_name".encode(): None,
+                        "hero_patronymic".encode(): None,
+                    }
+                    process_sequential_message()
+                    hgetall_mock.assert_called_once()
+                    hset_mock.assert_not_called()
 
         with self.subTest():
             with mock.patch(
@@ -219,8 +223,9 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
             ) as hgetall_mock, mock.patch(
                 "telegram_bot.sequential_messages_processor.redis.Redis.hset"
             ) as hset_mock, mock.patch(
-                "telegram_bot.sequential_messages_processor.redis.Redis.expire"
-            ) as expire_mock:
+                "telegram_bot.sequential_messages_processor.SequentialMessagesProcessor.check_if_user_input_exists"
+            ) as check_if_user_input_exists_mock:
+                check_if_user_input_exists_mock.return_value = True
                 hgetall_mock.return_value = {
                     "case_id".encode(): None,
                     "hero_last_name".encode(): None,
@@ -233,7 +238,6 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
                 hset_mock.assert_called_once_with(
                     str(chat_id), mapping={"item_used_for_dna_extraction": message_text}
                 )
-                expire_mock.assert_not_called()
 
         with self.subTest():
             with mock.patch(
@@ -241,8 +245,9 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
             ) as hgetall_mock, mock.patch(
                 "telegram_bot.sequential_messages_processor.redis.Redis.hset"
             ) as hset_mock, mock.patch(
-                "telegram_bot.sequential_messages_processor.redis.Redis.expire"
-            ) as expire_mock:
+                "telegram_bot.sequential_messages_processor.SequentialMessagesProcessor.check_if_user_input_exists"
+            ) as check_if_user_input_exists_mock:
+                check_if_user_input_exists_mock.return_value = True
                 hgetall_mock.return_value = {
                     "case_id".encode(): None,
                     "hero_last_name".encode(): None,
@@ -256,7 +261,6 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
                 hset_mock.assert_called_once_with(
                     str(chat_id), mapping={"relative_last_name": message_text}
                 )
-                expire_mock.assert_not_called()
 
         with self.subTest():
             with mock.patch(
@@ -264,8 +268,9 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
             ) as hgetall_mock, mock.patch(
                 "telegram_bot.sequential_messages_processor.redis.Redis.hset"
             ) as hset_mock, mock.patch(
-                "telegram_bot.sequential_messages_processor.redis.Redis.expire"
-            ) as expire_mock:
+                "telegram_bot.sequential_messages_processor.SequentialMessagesProcessor.check_if_user_input_exists"
+            ) as check_if_user_input_exists_mock:
+                check_if_user_input_exists_mock.return_value = True
                 hgetall_mock.return_value = {
                     "case_id".encode(): None,
                     "hero_last_name".encode(): None,
@@ -280,7 +285,6 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
                 hset_mock.assert_called_once_with(
                     str(chat_id), mapping={"relative_first_name": message_text}
                 )
-                expire_mock.assert_not_called()
 
         with self.subTest():
             with mock.patch(
@@ -288,8 +292,9 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
             ) as hgetall_mock, mock.patch(
                 "telegram_bot.sequential_messages_processor.redis.Redis.hset"
             ) as hset_mock, mock.patch(
-                "telegram_bot.sequential_messages_processor.redis.Redis.expire"
-            ) as expire_mock:
+                "telegram_bot.sequential_messages_processor.SequentialMessagesProcessor.check_if_user_input_exists"
+            ) as check_if_user_input_exists_mock:
+                check_if_user_input_exists_mock.return_value = True
                 hgetall_mock.return_value = {
                     "case_id".encode(): None,
                     "hero_last_name".encode(): None,
@@ -305,7 +310,6 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
                 hset_mock.assert_called_once_with(
                     str(chat_id), mapping={"relative_patronymic": message_text}
                 )
-                expire_mock.assert_not_called()
 
         with self.subTest():
             with mock.patch(
@@ -313,8 +317,9 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
             ) as hgetall_mock, mock.patch(
                 "telegram_bot.sequential_messages_processor.redis.Redis.hset"
             ) as hset_mock, mock.patch(
-                "telegram_bot.sequential_messages_processor.redis.Redis.expire"
-            ) as expire_mock:
+                "telegram_bot.sequential_messages_processor.SequentialMessagesProcessor.check_if_user_input_exists"
+            ) as check_if_user_input_exists_mock:
+                check_if_user_input_exists_mock.return_value = True
                 hgetall_mock.return_value = {
                     "case_id".encode(): None,
                     "hero_last_name".encode(): None,
@@ -331,7 +336,6 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
                 hset_mock.assert_called_once_with(
                     str(chat_id), mapping={"is_added_to_dna_db": message_text}
                 )
-                expire_mock.assert_not_called()
 
         with self.subTest():
             with mock.patch(
@@ -339,8 +343,9 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
             ) as hgetall_mock, mock.patch(
                 "telegram_bot.sequential_messages_processor.redis.Redis.hset"
             ) as hset_mock, mock.patch(
-                "telegram_bot.sequential_messages_processor.redis.Redis.expire"
-            ) as expire_mock:
+                "telegram_bot.sequential_messages_processor.SequentialMessagesProcessor.check_if_user_input_exists"
+            ) as check_if_user_input_exists_mock:
+                check_if_user_input_exists_mock.return_value = True
                 hgetall_mock.return_value = {
                     "case_id".encode(): None,
                     "hero_last_name".encode(): None,
@@ -358,7 +363,6 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
                 hset_mock.assert_called_once_with(
                     str(chat_id), mapping={"comment": message_text}
                 )
-                expire_mock.assert_not_called()
 
         with self.subTest():
             with mock.patch(
@@ -366,8 +370,9 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
             ) as hgetall_mock, mock.patch(
                 "telegram_bot.sequential_messages_processor.redis.Redis.hset"
             ) as hset_mock, mock.patch(
-                "telegram_bot.sequential_messages_processor.redis.Redis.expire"
-            ) as expire_mock:
+                "telegram_bot.sequential_messages_processor.SequentialMessagesProcessor.check_if_user_input_exists"
+            ) as check_if_user_input_exists_mock:
+                check_if_user_input_exists_mock.return_value = True
                 hgetall_mock.return_value = {
                     "case_id".encode(): None,
                     "hero_last_name".encode(): None,
@@ -385,7 +390,6 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
                     process_sequential_message()
                     hgetall_mock.assert_called_once()
                     hset_mock.assert_not_called()
-                    expire_mock.assert_not_called()
 
     @mock.patch("telegram_bot.sequential_messages_processor.client")
     def test_validate_input(self, redis_mock):
@@ -397,19 +401,20 @@ class TestSequentialMessagesProcessor(TelegramBotRequestsTestBase):
                 message_data=message_data,
                 user_id=int(chat_id),
             )
-            assert processor.message_validation_passed is True
+            processor._validate_user_input(message_data)
 
         with self.subTest():
-            redis_mock.hgetall.return_value = {
-                b"case_id": "123123",
-                b"hero_last_name": "AAA",
-                b"hero_first_name": "BBB",
-                b"hero_patronymic": "CCC",
-            }
-            message_data = "1-1-2022"
-            chat_id = "123123"
-            processor = SequentialMessagesProcessor(
-                message_data=message_data,
-                user_id=int(chat_id),
-            )
-            assert processor.message_validation_passed is False
+            with self.assertRaises(UserMessageValidationFailedException):
+                redis_mock.hgetall.return_value = {
+                    b"case_id": "123123",
+                    b"hero_last_name": "AAA",
+                    b"hero_first_name": "BBB",
+                    b"hero_patronymic": "CCC",
+                }
+                message_data = "1-1-2022"
+                chat_id = "123123"
+                processor = SequentialMessagesProcessor(
+                    message_data=message_data,
+                    user_id=int(chat_id),
+                )
+                processor._validate_user_input(message_data)
