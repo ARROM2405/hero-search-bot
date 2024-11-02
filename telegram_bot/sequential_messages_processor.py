@@ -91,7 +91,7 @@ class SequentialMessagesProcessor:
     def remove_incorrect_input(user_id: int):
         SequentialMessagesProcessor.validate_user_input_exists(user_id)
         logger.info(f"Removing incorrect input for user_id: {user_id}")
-        client.delete(str(user_id))
+        SequentialMessagesProcessor.delete_user_input(user_id)
 
     @staticmethod
     def save_confirmed_data(user_id: int, entry_author: TelegramUser) -> HeroData:
@@ -125,7 +125,7 @@ class SequentialMessagesProcessor:
             ),
             author=entry_author,
         )
-        client.delete(str(user_id))
+        SequentialMessagesProcessor.delete_user_input(user_id)
         return hero_data
 
     @staticmethod
@@ -149,3 +149,7 @@ class SequentialMessagesProcessor:
                 datetime.strptime(value, "%d/%m/%Y")
             except ValueError:
                 raise UserMessageValidationFailedException
+
+    @staticmethod
+    def delete_user_input(user_id: int):
+        client.delete(str(user_id))

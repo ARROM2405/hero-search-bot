@@ -281,7 +281,9 @@ class BotCommandProcessor(TelegramMessageProcessorBase, UserInputExpiredResponse
             self.user_input_expired = True
 
     def _process_start_command(self):
-        pass
+        SequentialMessagesProcessor.delete_user_input(
+            self.parsed_telegram_message.chat_id
+        )
 
     def _process_instructions_confirmed_command(self):
         SequentialMessagesProcessor.create_new_redis_entry(

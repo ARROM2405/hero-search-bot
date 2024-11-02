@@ -743,6 +743,22 @@ class TestBotCommandProcessor(TelegramBotRequestsTestBase):
 
     # command: /start
     @mock.patch(
+        "telegram_bot.message_handling_services.SequentialMessagesProcessor.delete_user_input"
+    )
+    def test_process_start(self, mock_delete_user_input):
+        serialized_data = self._get_serialized_request_data(
+            self.command_as_message_in_private_chat_request_payload
+        )
+        parsed_message = TelegramCommandParser.parse(serialized_data)
+
+        processor = BotCommandProcessor(telegram_message={})
+        processor.parsed_telegram_message = parsed_message
+        processor._process_start_command()
+        mock_delete_user_input.assert_called_once_with(
+            serialized_data["message"]["chat"]["id"]
+        )
+
+    @mock.patch(
         "telegram_bot.message_handling_services.BotCommandProcessor._remove_inline_keyboard_from_replied_message"
     )
     @mock.patch(
