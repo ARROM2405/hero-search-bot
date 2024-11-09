@@ -4,11 +4,11 @@ from unittest import mock
 from precisely import assert_that, has_attrs, is_mapping, is_sequence
 
 from telegram_bot.dataclasses import StatusChangeWithinChat
-from telegram_bot.enums import MessageType, ChatType, UserActionType
+from telegram_bot.enums import ChatType, MessageType, UserActionType
 from telegram_bot.parsers import (
-    UserMessageParser,
-    TelegramCommandParser,
     ChatStatusChangeMessageParser,
+    TelegramCommandParser,
+    UserMessageParser,
 )
 from telegram_bot.test.base import TelegramBotRequestsTestBase
 

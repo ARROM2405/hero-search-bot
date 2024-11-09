@@ -3,9 +3,9 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 
-from telegram_bot.serializers import TelegramBotSerializer
-from telegram_bot.message_handling_services import MessageHandler
 from telegram_bot.logger_config import logger
+from telegram_bot.message_handling_services import MessageHandler
+from telegram_bot.serializers import TelegramBotSerializer
 
 
 class TelegramBotApiView(GenericViewSet):

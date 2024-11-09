@@ -2,7 +2,7 @@ from datetime import date
 
 import factory
 
-from telegram_bot.models import TelegramUser, HeroData
+from telegram_bot.models import HeroData, TelegramUser
 
 
 class TelegramUserFactory(factory.django.DjangoModelFactory):

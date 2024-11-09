@@ -1,9 +1,9 @@
-import dotenv
 from io import StringIO
 from os import getenv
 from unittest import mock
 
-from django.core.management import call_command, CommandError
+import dotenv
+from django.core.management import CommandError, call_command
 from django.test import TestCase
 from precisely import assert_that, is_sequence
 from rest_framework import status

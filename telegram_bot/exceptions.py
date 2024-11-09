@@ -1,7 +1,3 @@
-from rest_framework import status
-from rest_framework.exceptions import APIException
-
-
 class AllDataReceivedException(Exception):
     def __init__(self):
         self.message = "All data is already received."

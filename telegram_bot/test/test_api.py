@@ -1,21 +1,20 @@
 import copy
 import json
-
 from copy import deepcopy
-
-from precisely import assert_that, is_mapping, has_attrs
-from rest_framework import status
-from rest_framework.reverse import reverse
 from unittest import mock
 
+from precisely import assert_that, has_attrs, is_mapping
+from rest_framework import status
+from rest_framework.reverse import reverse
+
 from telegram_bot.constants import BASE_URL, MESSAGES_MAPPING
-from telegram_bot.enums import UserActionType, ChatType
+from telegram_bot.enums import ChatType, UserActionType
 from telegram_bot.messages_texts import (
+    EDITED_MESSAGE_RESPONSE,
     FIRST_INSTRUCTIONS,
     INPUT_CONFIRMED_RESPONSE,
-    EDITED_MESSAGE_RESPONSE,
 )
-from telegram_bot.models import TelegramUser, BotStatusChange
+from telegram_bot.models import BotStatusChange, TelegramUser
 from telegram_bot.test.base import TelegramBotRequestsTestBase
 
 

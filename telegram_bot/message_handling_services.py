@@ -7,39 +7,38 @@ from django.conf import settings
 
 from telegram_bot.constants import (
     BASE_URL,
-    MESSAGES_MAPPING,
     DATE_FORMAT,
     MESSAGE_TEXT_VALIDATION_FAILED,
     MESSAGE_USER_INPUT_EXPIRED,
+    MESSAGES_MAPPING,
 )
 from telegram_bot.dataclasses import ResponseMessage
 from telegram_bot.enums import ChatType
 from telegram_bot.exceptions import (
-    TelegramMessageNotParsedException,
     AllDataReceivedException,
-    UnknownCommandException,
+    TelegramMessageNotParsedException,
     UnauthorizedUserCalledReportGenerationException,
+    UnknownCommandException,
     UserInputExpiredException,
     UserMessageValidationFailedException,
 )
+from telegram_bot.logger_config import logger
 from telegram_bot.messages_texts import (
-    FIRST_INSTRUCTIONS,
-    INPUT_NOT_CONFIRMED_RESPONSE,
-    INPUT_CONFIRMED_RESPONSE,
     ALL_DATA_RECEIVED_RESPONSE,
     EDITED_MESSAGE_RESPONSE,
+    FIRST_INSTRUCTIONS,
+    INPUT_CONFIRMED_RESPONSE,
+    INPUT_NOT_CONFIRMED_RESPONSE,
 )
-from telegram_bot.models import TelegramUser, BotStatusChange
+from telegram_bot.models import BotStatusChange, TelegramUser
 from telegram_bot.parsers import (
     ChatStatusChangeMessageParser,
-    UserMessageParser,
     TelegramCommandParser,
+    UserMessageParser,
 )
 from telegram_bot.report_generator import ReportGenerator
 from telegram_bot.sequential_messages_processor import SequentialMessagesProcessor
 from telegram_bot.types import ResponsePayload
-
-from telegram_bot.logger_config import logger
 
 
 class UserInputExpiredResponseMixin:

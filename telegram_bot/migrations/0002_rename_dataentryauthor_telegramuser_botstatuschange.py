@@ -2,8 +2,9 @@
 
 import django.db.models.deletion
 import enumfields.fields
-import telegram_bot.enums
 from django.db import migrations, models
+
+import telegram_bot.enums
 
 
 class Migration(migrations.Migration):

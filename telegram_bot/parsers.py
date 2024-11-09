@@ -1,10 +1,7 @@
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
 
-from telegram_bot.dataclasses import (
-    StatusChangeWithinChat,
-    UserMessage,
-    BotCommand,
-)
+from telegram_bot.dataclasses import (BotCommand, StatusChangeWithinChat,
+                                      UserMessage)
 from telegram_bot.enums import ChatType, MessageType, UserActionType
 
 

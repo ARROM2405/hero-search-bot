@@ -1,7 +1,7 @@
-from django.core.management.base import BaseCommand, CommandError
-import requests
 import os
 
+import requests
+from django.core.management.base import BaseCommand, CommandError
 from dotenv import load_dotenv
 from rest_framework import status
 

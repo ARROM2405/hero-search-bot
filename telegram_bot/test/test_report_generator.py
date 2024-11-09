@@ -9,7 +9,7 @@ from precisely import assert_that, is_sequence
 
 from telegram_bot.constants import DATE_FORMAT
 from telegram_bot.report_generator import ReportGenerator
-from telegram_bot.test.factories import TelegramUserFactory, HeroDataFactory
+from telegram_bot.test.factories import HeroDataFactory, TelegramUserFactory
 
 
 class TestReportGenerator(TestCase):

@@ -1,7 +1,7 @@
 from django.db import models
 from enumfields.fields import EnumIntegerField
 
-from telegram_bot.enums import UserActionType, ChatType
+from telegram_bot.enums import ChatType, UserActionType
 
 
 class TelegramUser(models.Model):

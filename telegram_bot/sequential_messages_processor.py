@@ -7,16 +7,16 @@ from django.conf import settings
 from dotenv import load_dotenv
 
 from telegram_bot.constants import (
-    ORDER_OF_MESSAGES,
     MESSAGES_MAPPING,
+    ORDER_OF_MESSAGES,
 )
 from telegram_bot.exceptions import (
     AllDataReceivedException,
     UserInputExpiredException,
     UserMessageValidationFailedException,
 )
-from telegram_bot.models import HeroData, TelegramUser
 from telegram_bot.logger_config import logger
+from telegram_bot.models import HeroData, TelegramUser
 
 load_dotenv(os.path.join(settings.BASE_DIR, ".env"))
 client = redis.Redis(host=os.getenv("REDIS_HOST"), port=os.getenv("REDIS_PORT"), db=0)

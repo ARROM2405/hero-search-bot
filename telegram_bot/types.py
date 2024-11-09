@@ -1,4 +1,4 @@
-from typing import TypedDict, IO
+from typing import IO, TypedDict
 
 
 class DataDict(TypedDict, total=False):

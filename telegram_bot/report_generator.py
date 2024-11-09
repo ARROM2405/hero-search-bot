@@ -5,8 +5,8 @@ from django.conf import settings
 from django.db.models import QuerySet
 
 from telegram_bot.constants import DATE_FORMAT
-from telegram_bot.models import HeroData
 from telegram_bot.logger_config import logger
+from telegram_bot.models import HeroData
 
 
 class ReportGenerator:

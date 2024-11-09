@@ -7,34 +7,34 @@ from django.test import override_settings
 from precisely import assert_that, has_attrs, is_mapping, is_sequence
 
 from telegram_bot.constants import (
-    ORDER_OF_MESSAGES,
-    MESSAGES_MAPPING,
     BASE_URL,
     MESSAGE_TEXT_VALIDATION_FAILED,
+    MESSAGES_MAPPING,
+    ORDER_OF_MESSAGES,
 )
 from telegram_bot.enums import ChatType, UserActionType
 from telegram_bot.exceptions import (
     TelegramMessageNotParsedException,
-    UnknownCommandException,
     UnauthorizedUserCalledReportGenerationException,
+    UnknownCommandException,
 )
 from telegram_bot.message_handling_services import (
-    MessageHandler,
-    MemberStatusChangeProcessor,
     BotCommandProcessor,
+    MemberStatusChangeProcessor,
+    MessageHandler,
     UserMessageProcessor,
 )
 from telegram_bot.messages_texts import (
-    FIRST_INSTRUCTIONS,
     ALL_DATA_RECEIVED_RESPONSE,
-    INQUERY_MESSAGE_START,
     CASE_ID_INQUERY,
+    EDITED_MESSAGE_RESPONSE,
+    FIRST_INSTRUCTIONS,
     INPUT_CONFIRMED_RESPONSE,
     INPUT_NOT_CONFIRMED_RESPONSE,
-    EDITED_MESSAGE_RESPONSE,
+    INQUERY_MESSAGE_START,
 )
 from telegram_bot.models import BotStatusChange, TelegramUser
-from telegram_bot.parsers import UserMessageParser, TelegramCommandParser
+from telegram_bot.parsers import TelegramCommandParser, UserMessageParser
 from telegram_bot.sequential_messages_processor import SequentialMessagesProcessor
 from telegram_bot.test.base import TelegramBotRequestsTestBase
 
